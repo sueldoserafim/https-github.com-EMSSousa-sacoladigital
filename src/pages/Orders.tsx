@@ -16,16 +16,19 @@ import { Check, Clock, ShoppingCart, Loader2 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 
 export default function Orders() {
-  const { organization } = useAuth()
+  const { organization, loading: authLoading } = useAuth()
   const { toast } = useToast()
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (authLoading) return
     if (organization) {
       fetchOrders()
+    } else {
+      setLoading(false)
     }
-  }, [organization])
+  }, [organization, authLoading])
 
   const fetchOrders = async () => {
     try {
@@ -68,10 +71,21 @@ export default function Orders() {
     }
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (!organization) {
+    return (
+      <div className="p-8 max-w-6xl mx-auto space-y-8 animate-fade-in-up">
+        <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
+        <p className="text-muted-foreground mt-2">
+          Nenhuma organização encontrada. Por favor, conclua a configuração da sua conta.
+        </p>
       </div>
     )
   }

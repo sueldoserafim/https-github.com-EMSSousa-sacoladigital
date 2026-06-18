@@ -41,11 +41,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchProfileAndOrg = async (userId: string) => {
     try {
-      const { data: profileData } = await supabase
+      const { data: profileData, error } = await supabase
         .from('profiles')
         .select('*, organizations(*)')
         .eq('id', userId)
         .single()
+
+      if (error) throw error
 
       if (profileData) {
         const { organizations, ...rest } = profileData
@@ -54,13 +56,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (err) {
       console.error('Error fetching profile', err)
+      setProfile(null)
+      setOrganization(null)
     }
   }
 
   useEffect(() => {
+    let mounted = true
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      if (!mounted) return
       setSession(currentSession)
       setUser(currentSession?.user ?? null)
       if (!currentSession?.user) {
@@ -71,6 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     })
 
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      if (!mounted) return
       setSession(initialSession)
       setUser(initialSession?.user ?? null)
       if (!initialSession?.user) {
@@ -78,12 +86,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   useEffect(() => {
+    let mounted = true
     if (user) {
-      fetchProfileAndOrg(user.id).finally(() => setLoading(false))
+      setLoading(true)
+      fetchProfileAndOrg(user.id).finally(() => {
+        if (mounted) setLoading(false)
+      })
+    }
+    return () => {
+      mounted = false
     }
   }, [user])
 
