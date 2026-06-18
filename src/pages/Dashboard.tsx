@@ -34,9 +34,7 @@ export default function Dashboard() {
             loja.
           </p>
         </div>
-        <Button asChild>
-          <Link to="/dashboard/pedidos">Ver Pedidos</Link>
-        </Button>
+        <Button asChild></Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
