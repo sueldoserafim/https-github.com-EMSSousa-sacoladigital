@@ -452,16 +452,26 @@ export type Database = {
         Returns: undefined
       }
       confirm_order: { Args: { p_order_id: string }; Returns: undefined }
-      create_checkout_order: {
-        Args: {
-          p_customer_email: string
-          p_customer_name: string
-          p_customer_phone: string
-          p_items: Json
-          p_org_slug: string
-        }
-        Returns: string
-      }
+      create_checkout_order:
+        | {
+            Args: {
+              p_customer_email: string
+              p_customer_name: string
+              p_customer_phone: string
+              p_items: Json
+              p_org_slug: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_customer_email: string
+              p_customer_name: string
+              p_items: Json
+              p_org_slug: string
+            }
+            Returns: string
+          }
       get_my_org_id: { Args: never; Returns: string }
     }
     Enums: {

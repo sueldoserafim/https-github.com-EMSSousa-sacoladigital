@@ -14,7 +14,6 @@ import SignUp from './pages/SignUp'
 import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
 import Products from './pages/Products'
-import ProductDetails from './pages/ProductDetails'
 import Settings from './pages/Settings'
 import Team from './pages/Team'
 import Customers from './pages/Customers'
@@ -52,7 +51,6 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/products" element={<Products />} />
-              <Route path="/products/:id" element={<ProductDetails />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/team" element={<Team />} />
               <Route path="/customers" element={<Customers />} />

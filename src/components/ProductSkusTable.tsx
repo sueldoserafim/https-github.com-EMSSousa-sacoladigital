@@ -26,13 +26,24 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, Save, Settings2 } from 'lucide-react'
+import { useToast } from '@/components/ui/use-toast'
+import { supabase } from '@/lib/supabase/client'
+import { Loader2, Save, Settings2, Image as ImageIcon, Upload } from 'lucide-react'
 import { useState } from 'react'
 
-export function ProductSkusTable({ skus, loading, onSkuChange, onSave, onAdjustStock }: any) {
+export function ProductSkusTable({
+  skus,
+  loading,
+  onSkuChange,
+  onSave,
+  onAdjustStock,
+  onUploadImage,
+}: any) {
   const [adjustSku, setAdjustSku] = useState<any>(null)
   const [adjustQuantity, setAdjustQuantity] = useState(0)
   const [adjustReason, setAdjustReason] = useState('')
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const { toast } = useToast()
 
   const handleAdjustSubmit = async () => {
     if (!adjustSku) return
@@ -41,21 +52,37 @@ export function ProductSkusTable({ skus, loading, onSkuChange, onSave, onAdjustS
     setAdjustQuantity(0)
     setAdjustReason('')
   }
+
+  const handleImageChange = async (e: any, skuId: string) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      setUploadingId(skuId)
+      const url = await onUploadImage(file, skuId)
+      onSkuChange(skuId, 'image_url', url)
+      await supabase.from('product_skus').update({ image_url: url }).eq('id', skuId)
+      toast({ title: 'Imagem atualizada', description: 'A imagem do SKU foi salva com sucesso.' })
+    } catch (err: any) {
+      toast({ title: 'Erro ao enviar imagem', description: err.message, variant: 'destructive' })
+    } finally {
+      setUploadingId(null)
+    }
+  }
+
   if (skus.length === 0) return null
 
   return (
     <Card className="mt-8 animate-fade-in">
       <CardHeader>
         <CardTitle>SKUs Gerados</CardTitle>
-        <CardDescription>
-          Gerencie preços diferenciados e estoque individual para cada variação.
-        </CardDescription>
+        <CardDescription>Gerencie preços, estoque e imagens para cada variação.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Imagem</TableHead>
                 <TableHead>Código SKU</TableHead>
                 <TableHead>Variações</TableHead>
                 <TableHead>Preço Diferenciado</TableHead>
@@ -65,6 +92,43 @@ export function ProductSkusTable({ skus, loading, onSkuChange, onSave, onAdjustS
             <TableBody>
               {skus.map((sku: any) => (
                 <TableRow key={sku.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {sku.image_url ? (
+                        <img
+                          src={sku.image_url}
+                          alt={sku.sku_code}
+                          className="w-10 h-10 rounded-md object-cover border"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center text-muted-foreground border">
+                          <ImageIcon className="w-4 h-4" />
+                        </div>
+                      )}
+                      <div className="relative">
+                        <Input
+                          type="file"
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                          title="Upload image"
+                          onChange={(e) => handleImageChange(e, sku.id)}
+                          accept="image/*"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          type="button"
+                          disabled={uploadingId === sku.id}
+                        >
+                          {uploadingId === sku.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Upload className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{sku.sku_code}</TableCell>
                   <TableCell>
                     <div className="flex gap-1 flex-wrap">
@@ -85,7 +149,7 @@ export function ProductSkusTable({ skus, loading, onSkuChange, onSave, onAdjustS
                       </span>
                       <Input
                         type="number"
-                        placeholder="Preço Base"
+                        placeholder="Base"
                         value={sku.price_override === null ? '' : sku.price_override}
                         onChange={(e) => onSkuChange(sku.id, 'price_override', e.target.value)}
                         className="pl-8"
