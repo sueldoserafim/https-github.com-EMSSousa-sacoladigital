@@ -17,6 +17,7 @@ import Products from './pages/Products'
 import ProductDetails from './pages/ProductDetails'
 import Settings from './pages/Settings'
 import Team from './pages/Team'
+import Customers from './pages/Customers'
 import StorefrontLayout from './pages/storefront/StorefrontLayout'
 import StorefrontIndex from './pages/storefront/StorefrontIndex'
 import StorefrontProduct from './pages/storefront/StorefrontProduct'
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="/products/:id" element={<ProductDetails />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/team" element={<Team />} />
+              <Route path="/customers" element={<Customers />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />

@@ -94,6 +94,7 @@ export type Database = {
           id: string
           name: string
           organization_id: string | null
+          phone: string | null
         }
         Insert: {
           created_at?: string
@@ -101,6 +102,7 @@ export type Database = {
           id?: string
           name: string
           organization_id?: string | null
+          phone?: string | null
         }
         Update: {
           created_at?: string
@@ -108,6 +110,7 @@ export type Database = {
           id?: string
           name?: string
           organization_id?: string | null
+          phone?: string | null
         }
         Relationships: [
           {
@@ -453,6 +456,7 @@ export type Database = {
         Args: {
           p_customer_email: string
           p_customer_name: string
+          p_customer_phone: string
           p_items: Json
           p_org_slug: string
         }
