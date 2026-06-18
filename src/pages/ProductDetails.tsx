@@ -121,12 +121,31 @@ export default function ProductDetails() {
       for (const sku of skus) {
         await supabase
           .from('product_skus')
-          .update({ price_override: sku.price_override, stock: sku.stock })
+          .update({ price_override: sku.price_override })
           .eq('id', sku.id)
       }
-      toast({ title: 'Sucesso', description: 'SKUs atualizados com sucesso!' })
+      toast({ title: 'Sucesso', description: 'Preços dos SKUs atualizados com sucesso!' })
     } catch (err: any) {
       toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' })
+    } finally {
+      setSkuLoading(false)
+    }
+  }
+
+  const handleAdjustStock = async (skuId: string, quantity: number, description: string) => {
+    setSkuLoading(true)
+    try {
+      const { error } = await supabase.rpc('adjust_sku_stock', {
+        p_sku_id: skuId,
+        p_quantity: quantity,
+        p_type: 'MANUAL_ADJUSTMENT',
+        p_description: description,
+      })
+      if (error) throw error
+      toast({ title: 'Sucesso', description: 'Estoque ajustado com sucesso!' })
+      await fetchSkus()
+    } catch (err: any) {
+      toast({ title: 'Erro ao ajustar estoque', description: err.message, variant: 'destructive' })
     } finally {
       setSkuLoading(false)
     }
@@ -250,6 +269,7 @@ export default function ProductDetails() {
             )
           }
           onSave={handleSaveSkus}
+          onAdjustStock={handleAdjustStock}
         />
       )}
     </div>

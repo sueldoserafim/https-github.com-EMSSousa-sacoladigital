@@ -16,9 +16,31 @@ import {
   TableBody,
   TableCell,
 } from '@/components/ui/table'
-import { Loader2, Save } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Loader2, Save, Settings2 } from 'lucide-react'
+import { useState } from 'react'
 
-export function ProductSkusTable({ skus, loading, onSkuChange, onSave }: any) {
+export function ProductSkusTable({ skus, loading, onSkuChange, onSave, onAdjustStock }: any) {
+  const [adjustSku, setAdjustSku] = useState<any>(null)
+  const [adjustQuantity, setAdjustQuantity] = useState(0)
+  const [adjustReason, setAdjustReason] = useState('')
+
+  const handleAdjustSubmit = async () => {
+    if (!adjustSku) return
+    await onAdjustStock(adjustSku.id, adjustQuantity, adjustReason)
+    setAdjustSku(null)
+    setAdjustQuantity(0)
+    setAdjustReason('')
+  }
   if (skus.length === 0) return null
 
   return (
@@ -71,12 +93,21 @@ export function ProductSkusTable({ skus, loading, onSkuChange, onSave }: any) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
-                      value={sku.stock}
-                      onChange={(e) => onSkuChange(sku.id, 'stock', e.target.value)}
-                      className="w-24"
-                    />
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium min-w-8">{sku.stock}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setAdjustSku(sku)
+                          setAdjustQuantity(0)
+                          setAdjustReason('')
+                        }}
+                      >
+                        <Settings2 className="h-4 w-4 mr-1" />
+                        Ajustar
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -91,9 +122,53 @@ export function ProductSkusTable({ skus, loading, onSkuChange, onSave }: any) {
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}
-          Salvar SKUs
+          Salvar Preços
         </Button>
       </CardFooter>
+
+      <Dialog open={!!adjustSku} onOpenChange={(open) => !open && setAdjustSku(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajustar Estoque</DialogTitle>
+            <DialogDescription>SKU: {adjustSku?.sku_code}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Quantidade (Positiva ou Negativa)</Label>
+              <Input
+                type="number"
+                value={adjustQuantity}
+                onChange={(e) => setAdjustQuantity(Number(e.target.value))}
+                placeholder="Ex: 5 ou -3"
+              />
+              <p className="text-sm text-muted-foreground">
+                Estoque atual: {adjustSku?.stock} | Novo estoque:{' '}
+                {(adjustSku?.stock || 0) + adjustQuantity}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Motivo (Opcional)</Label>
+              <Textarea
+                value={adjustReason}
+                onChange={(e) => setAdjustReason(e.target.value)}
+                placeholder="Ex: Recebimento de mercadoria, perda, etc."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustSku(null)} disabled={loading}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleAdjustSubmit}
+              disabled={loading || (adjustSku?.stock || 0) + adjustQuantity < 0}
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar Ajuste
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
