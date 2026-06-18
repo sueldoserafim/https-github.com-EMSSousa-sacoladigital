@@ -40,7 +40,7 @@ const App = () => (
             {/* Authenticated App Routes */}
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/dashboard/pedidos" element={<Orders />} />
+              <Route path="/orders" element={<Orders />} />
               <Route path="/products" element={<Products />} />
               <Route path="/products/:id" element={<ProductDetails />} />
               <Route path="/settings" element={<Settings />} />

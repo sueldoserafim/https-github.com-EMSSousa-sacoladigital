@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
 import { Badge } from '@/components/ui/badge'
-import { Check, Clock, ShoppingCart } from 'lucide-react'
+import { Check, Clock, ShoppingCart, Loader2 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 
 export default function Orders() {
@@ -69,7 +69,11 @@ export default function Orders() {
   }
 
   if (loading) {
-    return <div className="p-8">Carregando pedidos...</div>
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -88,13 +92,13 @@ export default function Orders() {
           {orders.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <ShoppingCart className="mx-auto h-12 w-12 opacity-50 mb-4" />
-              <p>Nenhum pedido recebido ainda.</p>
+              <p>Nenhum pedido encontrado.</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Pedido</TableHead>
+                  <TableHead>Número do Pedido</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Itens</TableHead>
                   <TableHead>Total</TableHead>

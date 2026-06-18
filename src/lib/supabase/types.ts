@@ -126,6 +126,7 @@ export type Database = {
           price: number
           product_id: string | null
           quantity: number
+          sku_id: string | null
         }
         Insert: {
           id?: string
@@ -133,6 +134,7 @@ export type Database = {
           price?: number
           product_id?: string | null
           quantity?: number
+          sku_id?: string | null
         }
         Update: {
           id?: string
@@ -140,6 +142,7 @@ export type Database = {
           price?: number
           product_id?: string | null
           quantity?: number
+          sku_id?: string | null
         }
         Relationships: [
           {
@@ -154,6 +157,13 @@ export type Database = {
             columns: ['product_id']
             isOneToOne: false
             referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'order_items_sku_id_fkey'
+            columns: ['sku_id']
+            isOneToOne: false
+            referencedRelation: 'product_skus'
             referencedColumns: ['id']
           },
         ]
@@ -437,6 +447,16 @@ export type Database = {
           p_type: string
         }
         Returns: undefined
+      }
+      confirm_order: { Args: { p_order_id: string }; Returns: undefined }
+      create_checkout_order: {
+        Args: {
+          p_customer_email: string
+          p_customer_name: string
+          p_items: Json
+          p_org_slug: string
+        }
+        Returns: string
       }
     }
     Enums: {
