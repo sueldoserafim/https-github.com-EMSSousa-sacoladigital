@@ -6,44 +6,50 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%; /* Light gray background for SaaS feel */
-    --foreground: 222.2 84% 4.9%;
+    --background: 340 100% 98%;
+    --foreground: 338 20% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 338 20% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 338 20% 15%;
 
-    --primary: 244 76% 59%; /* Indigo-500 */
-    --primary-foreground: 210 40% 98%;
+    --primary: 338 65% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 338 20% 90%;
+    --secondary-foreground: 338 65% 30%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 338 20% 95%;
+    --muted-foreground: 338 15% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 338 40% 92%;
+    --accent-foreground: 338 65% 30%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 244 76% 59%; /* Focus ring matches primary */
+    --border: 338 30% 90%;
+    --input: 338 30% 90%;
+    --ring: 338 65% 50%;
 
     --radius: 0.75rem;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222.2 84% 4.9%;
-    --sidebar-primary: 244 76% 59%;
+    --sidebar-foreground: 338 20% 20%;
+    --sidebar-primary: 338 65% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 40% 96.1%;
-    --sidebar-accent-foreground: 222.2 84% 4.9%;
-    --sidebar-border: 214.3 31.8% 91.4%;
-    --sidebar-ring: 244 76% 59%;
+    --sidebar-accent: 338 40% 94%;
+    --sidebar-accent-foreground: 338 65% 50%;
+    --sidebar-border: 338 30% 90%;
+    --sidebar-ring: 338 65% 50%;
+
+    --chart-1: 338 65% 50%;
+    --chart-2: 338 50% 70%;
+    --chart-3: 338 40% 80%;
+    --chart-4: 338 30% 90%;
+    --chart-5: 338 20% 95%;
   }
 
   * {
