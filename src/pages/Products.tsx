@@ -34,12 +34,12 @@ export default function Products() {
     <div className="space-y-6 max-w-5xl mx-auto py-8 animate-fade-in-up">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Products</h1>
-          <p className="text-muted-foreground mt-1">Manage your catalog and variations.</p>
+          <h1 className="text-3xl font-bold">Produtos</h1>
+          <p className="text-muted-foreground mt-1">Gerencie seu catálogo e variações.</p>
         </div>
         <Button asChild>
           <Link to="/products/new">
-            <Plus className="mr-2 h-4 w-4" /> Add Product
+            <Plus className="mr-2 h-4 w-4" /> Adicionar Produto
           </Link>
         </Button>
       </div>
@@ -49,21 +49,25 @@ export default function Products() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Base Price</TableHead>
-                <TableHead>Base Stock</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Nome</TableHead>
+                <TableHead>Preço Base</TableHead>
+                <TableHead>Estoque</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {products.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell>${p.price}</TableCell>
+                  <TableCell>
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                      p.price,
+                    )}
+                  </TableCell>
                   <TableCell>{p.stock}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" asChild>
-                      <Link to={`/products/${p.id}`}>Edit</Link>
+                      <Link to={`/products/${p.id}`}>Editar</Link>
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -71,7 +75,7 @@ export default function Products() {
               {products.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
-                    No products found. Create your first product!
+                    Nenhum produto encontrado. Crie seu primeiro produto!
                   </TableCell>
                 </TableRow>
               )}

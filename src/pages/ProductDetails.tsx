@@ -93,13 +93,11 @@ export default function ProductDetails() {
           for (const opt of attr.options) {
             if (!opt.value) continue
             if (!opt.id) {
-              await supabase
-                .from('attribute_options')
-                .insert({
-                  attribute_id: attrId,
-                  value: opt.value,
-                  organization_id: organization.id,
-                })
+              await supabase.from('attribute_options').insert({
+                attribute_id: attrId,
+                value: opt.value,
+                organization_id: organization.id,
+              })
             } else {
               await supabase.from('attribute_options').update({ value: opt.value }).eq('id', opt.id)
             }
@@ -107,11 +105,11 @@ export default function ProductDetails() {
         }
         await supabase.functions.invoke('generate-skus', { body: { productId } })
       }
-      toast({ title: 'Success', description: 'Product saved successfully!' })
+      toast({ title: 'Sucesso', description: 'Produto salvo com sucesso!' })
       if (id === 'new') navigate(`/products/${productId}`, { replace: true })
       else await fetchProductData()
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' })
+      toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' })
     } finally {
       setLoading(false)
     }
@@ -126,9 +124,9 @@ export default function ProductDetails() {
           .update({ price_override: sku.price_override, stock: sku.stock })
           .eq('id', sku.id)
       }
-      toast({ title: 'Success', description: 'SKUs updated successfully!' })
+      toast({ title: 'Sucesso', description: 'SKUs atualizados com sucesso!' })
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' })
+      toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' })
     } finally {
       setSkuLoading(false)
     }
@@ -157,7 +155,9 @@ export default function ProductDetails() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold">{id === 'new' ? 'Create Product' : 'Edit Product'}</h1>
+          <h1 className="text-3xl font-bold">
+            {id === 'new' ? 'Criar Produto' : 'Editar Produto'}
+          </h1>
         </div>
         <Button onClick={handleSaveProduct} disabled={loading}>
           {loading ? (
@@ -165,7 +165,7 @@ export default function ProductDetails() {
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}
-          Save Product
+          Salvar Produto
         </Button>
       </div>
 
@@ -173,22 +173,30 @@ export default function ProductDetails() {
         <CardContent className="space-y-6 pt-6">
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2 col-span-2">
-              <Label>Product Name</Label>
+              <Label>Nome</Label>
               <Input
                 value={product.name}
                 onChange={(e) => setProduct({ ...product, name: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>Base Price ($)</Label>
-              <Input
-                type="number"
-                value={product.price}
-                onChange={(e) => setProduct({ ...product, price: parseFloat(e.target.value) || 0 })}
-              />
+              <Label>Preço Base</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  R$
+                </span>
+                <Input
+                  type="number"
+                  className="pl-8"
+                  value={product.price}
+                  onChange={(e) =>
+                    setProduct({ ...product, price: parseFloat(e.target.value) || 0 })
+                  }
+                />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label>Base Stock</Label>
+              <Label>Estoque</Label>
               <Input
                 type="number"
                 value={product.stock}
@@ -198,9 +206,9 @@ export default function ProductDetails() {
           </div>
           <div className="flex items-center justify-between pt-6 border-t">
             <div className="space-y-1">
-              <Label className="text-base font-semibold">Product has variations</Label>
+              <Label className="text-base font-semibold">Produto possui variações</Label>
               <p className="text-sm text-muted-foreground">
-                Enable this to configure attributes like size or color to generate SKUs.
+                Habilite isso para configurar atributos como tamanho ou cor para gerar SKUs.
               </p>
             </div>
             <Switch checked={hasVariations} onCheckedChange={setHasVariations} />

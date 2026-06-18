@@ -4,6 +4,13 @@ import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   LayoutDashboard,
   Settings,
   Users,
@@ -15,6 +22,7 @@ import {
   FileText,
   ExternalLink,
   Bell,
+  User,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -36,7 +44,7 @@ export function AppLayout() {
   }
 
   const navItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Painel', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Produtos', href: '/products', icon: ShoppingBag },
     { name: 'Pedidos', href: '/orders', icon: ShoppingCart },
     { name: 'Clientes', href: '/team', icon: Users },
@@ -49,7 +57,6 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
@@ -57,7 +64,6 @@ export function AppLayout() {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-border/50 transform transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 flex flex-col',
@@ -143,7 +149,6 @@ export function AppLayout() {
         </div>
       </aside>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="h-16 flex items-center justify-between px-4 sm:px-8 border-b border-border/50 bg-white/70 backdrop-blur-sm sticky top-0 z-30">
           <div className="flex items-center gap-4">
@@ -167,14 +172,31 @@ export function AppLayout() {
               <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-primary rounded-full ring-2 ring-white" />
             </Button>
             <div className="flex items-center gap-3 border-l border-border pl-4">
-              <span className="text-sm font-semibold text-foreground hidden sm:block">
-                {profile?.full_name?.split(' ')[0]}
-              </span>
-              <Avatar className="h-9 w-9 bg-accent text-primary cursor-pointer hover:opacity-80 transition-opacity rounded-xl">
-                <AvatarFallback className="font-bold rounded-xl bg-primary/10">
-                  {getInitials(profile?.full_name || '')}
-                </AvatarFallback>
-              </Avatar>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
+                    <span className="text-sm font-semibold text-foreground hidden sm:block">
+                      {profile?.full_name?.split(' ')[0]}
+                    </span>
+                    <Avatar className="h-9 w-9 bg-accent text-primary rounded-xl">
+                      <AvatarFallback className="font-bold rounded-xl bg-primary/10">
+                        {getInitials(profile?.full_name || '')}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Meu Perfil</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut} className="text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>

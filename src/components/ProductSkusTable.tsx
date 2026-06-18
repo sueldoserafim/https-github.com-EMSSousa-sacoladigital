@@ -24,9 +24,9 @@ export function ProductSkusTable({ skus, loading, onSkuChange, onSave }: any) {
   return (
     <Card className="mt-8 animate-fade-in">
       <CardHeader>
-        <CardTitle>Generated SKUs</CardTitle>
+        <CardTitle>SKUs Gerados</CardTitle>
         <CardDescription>
-          Manage price overrides and individual stock for each variation.
+          Gerencie preços diferenciados e estoque individual para cada variação.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -34,10 +34,10 @@ export function ProductSkusTable({ skus, loading, onSkuChange, onSave }: any) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>SKU Code</TableHead>
-                <TableHead>Variations</TableHead>
-                <TableHead>Price Override</TableHead>
-                <TableHead>Stock</TableHead>
+                <TableHead>Código SKU</TableHead>
+                <TableHead>Variações</TableHead>
+                <TableHead>Preço Diferenciado</TableHead>
+                <TableHead>Estoque</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -57,13 +57,18 @@ export function ProductSkusTable({ skus, loading, onSkuChange, onSave }: any) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
-                      placeholder="Base Price"
-                      value={sku.price_override === null ? '' : sku.price_override}
-                      onChange={(e) => onSkuChange(sku.id, 'price_override', e.target.value)}
-                      className="w-32"
-                    />
+                    <div className="relative w-32">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                        R$
+                      </span>
+                      <Input
+                        type="number"
+                        placeholder="Preço Base"
+                        value={sku.price_override === null ? '' : sku.price_override}
+                        onChange={(e) => onSkuChange(sku.id, 'price_override', e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Input
@@ -86,7 +91,7 @@ export function ProductSkusTable({ skus, loading, onSkuChange, onSave }: any) {
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}
-          Save SKUs
+          Salvar SKUs
         </Button>
       </CardFooter>
     </Card>

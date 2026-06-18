@@ -9,6 +9,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      attribute_options: {
+        Row: {
+          attribute_id: string
+          created_at: string
+          id: string
+          organization_id: string
+          value: string
+        }
+        Insert: {
+          attribute_id: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          value: string
+        }
+        Update: {
+          attribute_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'attribute_options_attribute_id_fkey'
+            columns: ['attribute_id']
+            isOneToOne: false
+            referencedRelation: 'attributes'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'attribute_options_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      attributes: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          product_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+          product_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'attributes_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'attributes_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string
@@ -146,6 +224,51 @@ export type Database = {
         }
         Relationships: []
       }
+      product_skus: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          price_override: number | null
+          product_id: string
+          sku_code: string
+          stock: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          price_override?: number | null
+          product_id: string
+          sku_code: string
+          stock?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          price_override?: number | null
+          product_id?: string
+          sku_code?: string
+          stock?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'product_skus_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'product_skus_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       products: {
         Row: {
           created_at: string
@@ -209,6 +332,46 @@ export type Database = {
             columns: ['organization_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      sku_attribute_values: {
+        Row: {
+          attribute_option_id: string
+          organization_id: string
+          sku_id: string
+        }
+        Insert: {
+          attribute_option_id: string
+          organization_id: string
+          sku_id: string
+        }
+        Update: {
+          attribute_option_id?: string
+          organization_id?: string
+          sku_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sku_attribute_values_attribute_option_id_fkey'
+            columns: ['attribute_option_id']
+            isOneToOne: false
+            referencedRelation: 'attribute_options'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sku_attribute_values_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sku_attribute_values_sku_id_fkey'
+            columns: ['sku_id']
+            isOneToOne: false
+            referencedRelation: 'product_skus'
             referencedColumns: ['id']
           },
         ]

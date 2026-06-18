@@ -96,7 +96,7 @@ export default function Login() {
               className="w-full h-12 rounded-xl text-base font-semibold transition-transform hover:scale-[1.02] active:scale-[0.98]"
               disabled={loading}
             >
-              {loading ? 'Entrando...' : 'Entrar na minha loja →'}
+              {loading ? 'Entrando...' : 'Entrar'}
             </Button>
           </CardFooter>
         </form>
@@ -105,7 +105,7 @@ export default function Login() {
       <div className="mt-8 text-sm text-muted-foreground text-center">
         Não tem conta?{' '}
         <Link to="/signup" className="text-primary font-semibold hover:underline">
-          Criar loja grátis
+          Cadastre-se
         </Link>
       </div>
     </div>

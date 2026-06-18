@@ -1,7 +1,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Package, Users, Settings as SettingsIcon } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Package, Users, DollarSign } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts'
+
+const data = [
+  { name: 'Jan', vendas: 4000 },
+  { name: 'Fev', vendas: 3000 },
+  { name: 'Mar', vendas: 2000 },
+  { name: 'Abr', vendas: 2780 },
+  { name: 'Mai', vendas: 1890 },
+  { name: 'Jun', vendas: 2390 },
+]
 
 export default function Dashboard() {
   const { organization } = useAuth()
@@ -9,51 +25,78 @@ export default function Dashboard() {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8 animate-fade-in-up">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Painel</h1>
         <p className="text-muted-foreground mt-2">
-          Welcome back to {organization?.name || 'your workspace'}. Here's an overview of your
-          store.
+          Bem-vindo(a) de volta a {organization?.name || 'seu espaço'}. Aqui está o resumo da sua
+          loja.
         </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <Link to="/products">
-          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Products</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">Manage</div>
-              <p className="text-xs text-muted-foreground">Create and manage variations and SKUs</p>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link to="/team">
-          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Team</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">Members</div>
-              <p className="text-xs text-muted-foreground">Manage your organization team</p>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link to="/settings">
-          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Settings</CardTitle>
-              <SettingsIcon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">Preferences</div>
-              <p className="text-xs text-muted-foreground">Configure your account</p>
-            </CardContent>
-          </Card>
-        </Link>
+        <Card className="h-full">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Vendas Totais</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">R$ 15.231,89</div>
+            <p className="text-xs text-muted-foreground">+20.1% em relação ao mês anterior</p>
+          </CardContent>
+        </Card>
+        <Card className="h-full">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Produtos Ativos</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">124</div>
+            <p className="text-xs text-muted-foreground">+12 novos produtos esta semana</p>
+          </CardContent>
+        </Card>
+        <Card className="h-full">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Novos Clientes</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">+573</div>
+            <p className="text-xs text-muted-foreground">+201 nas últimas 24 horas</p>
+          </CardContent>
+        </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Vendas por Período</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer
+            config={{
+              vendas: {
+                label: 'Vendas',
+                color: 'hsl(var(--primary))',
+              },
+            }}
+            className="h-[300px] w-full"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                <XAxis dataKey="name" className="text-xs" tickLine={false} axisLine={false} />
+                <YAxis
+                  className="text-xs"
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `R$ ${value}`}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Bar dataKey="vendas" fill="var(--color-vendas)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartContainer>
+        </CardContent>
+      </Card>
     </div>
   )
 }

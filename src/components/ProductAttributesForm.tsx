@@ -15,9 +15,9 @@ export function ProductAttributesForm({
   return (
     <Card className="mt-8 animate-fade-in">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Product Attributes</CardTitle>
+        <CardTitle>Atributos</CardTitle>
         <Button type="button" variant="outline" size="sm" onClick={onAddAttr}>
-          <Plus className="h-4 w-4 mr-2" /> Add Attribute
+          <Plus className="h-4 w-4 mr-2" /> Adicionar Atributo
         </Button>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -25,7 +25,7 @@ export function ProductAttributesForm({
           <div key={i} className="border p-4 rounded-md space-y-4 bg-muted/20">
             <div className="flex items-center gap-4">
               <Input
-                placeholder="Attribute (e.g., Color)"
+                placeholder="Atributo (ex: Cor)"
                 value={attr.name}
                 onChange={(e) => onUpdateAttr(i, e.target.value)}
                 className="max-w-xs font-semibold"
@@ -43,7 +43,7 @@ export function ProductAttributesForm({
               {attr.options.map((opt: any, j: number) => (
                 <div key={j} className="flex items-center gap-2">
                   <Input
-                    placeholder="Option Value (e.g., Red)"
+                    placeholder="Opção (ex: Vermelho)"
                     value={opt.value}
                     onChange={(e) => onUpdateOption(i, j, e.target.value)}
                     className="max-w-xs"
@@ -59,14 +59,14 @@ export function ProductAttributesForm({
                 </div>
               ))}
               <Button type="button" variant="secondary" size="sm" onClick={() => onAddOption(i)}>
-                <Plus className="h-4 w-4 mr-2" /> Add Option
+                <Plus className="h-4 w-4 mr-2" /> Adicionar Opção
               </Button>
             </div>
           </div>
         ))}
         {attributes.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-6 border border-dashed rounded-md">
-            No attributes defined. Add one to generate variations.
+            Nenhum atributo definido. Adicione um para gerar variações.
           </p>
         )}
       </CardContent>

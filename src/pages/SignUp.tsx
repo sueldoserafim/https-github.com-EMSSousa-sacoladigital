@@ -51,7 +51,7 @@ export default function SignUp() {
   return (
     <Card className="border-0 shadow-xl">
       <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-2xl font-semibold tracking-tight">Crie sua conta</CardTitle>
+        <CardTitle className="text-2xl font-semibold tracking-tight">Criar Conta</CardTitle>
         <CardDescription>Preencha os dados abaixo para começar a usar a plataforma</CardDescription>
       </CardHeader>
       <form onSubmit={handleSignUp}>
@@ -105,7 +105,7 @@ export default function SignUp() {
             className="w-full transition-transform hover:scale-[1.02]"
             disabled={loading}
           >
-            {loading ? 'Criando conta...' : 'Cadastrar e Criar Organização'}
+            {loading ? 'Criando conta...' : 'Criar Conta'}
           </Button>
           <div className="text-sm text-center text-gray-500">
             Já tem uma conta?{' '}
