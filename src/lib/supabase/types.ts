@@ -462,6 +462,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_my_org_id: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never

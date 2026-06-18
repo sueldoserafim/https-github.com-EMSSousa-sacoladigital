@@ -1,42 +1,54 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { Badge } from '@/components/ui/badge'
-import { Check, Clock, ShoppingCart, Loader2 } from 'lucide-react'
+import { Loader2, Plus, Search, PackageOpen } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
+import { cn } from '@/lib/utils'
+import { NewOrderModal } from '@/components/orders/NewOrderModal'
+import { OrderCard } from '@/components/orders/OrderCard'
+
+const STATUSES = [
+  'Todos',
+  'Novo',
+  'Confirmado',
+  'Em preparação',
+  'Pronto p/ entrega',
+  'Entregue',
+  'Cancelado',
+]
+const NEXT_STATUS: Record<string, string> = {
+  Novo: 'Confirmado',
+  Confirmado: 'Em preparação',
+  'Em preparação': 'Pronto p/ entrega',
+  'Pronto p/ entrega': 'Entregue',
+}
 
 export default function Orders() {
   const { organization, loading: authLoading } = useAuth()
   const { toast } = useToast()
+
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('Todos')
+  const [search, setSearch] = useState('')
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   useEffect(() => {
     if (authLoading) return
-    if (organization) {
-      fetchOrders()
-    } else {
-      setLoading(false)
-    }
+    if (organization) fetchOrders()
+    else setLoading(false)
   }, [organization, authLoading])
 
   const fetchOrders = async () => {
+    setLoading(true)
     try {
       const { data, error } = await supabase
         .from('orders')
         .select(`
           *,
-          customers(name, email),
+          customers(name, email, phone),
           order_items(
             quantity,
             price,
@@ -56,20 +68,62 @@ export default function Orders() {
     }
   }
 
-  const confirmOrder = async (orderId: string) => {
+  const handleAdvance = async (order: any) => {
+    const nextStatus = NEXT_STATUS[order.status]
+    if (!nextStatus) return
+
     try {
-      const { error } = await supabase.rpc('confirm_order', { p_order_id: orderId })
-      if (error) throw error
-      toast({ title: 'Sucesso', description: 'Pedido confirmado e estoque atualizado.' })
+      if (nextStatus === 'Confirmado') {
+        const { error } = await supabase.rpc('confirm_order', { p_order_id: order.id })
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('orders')
+          .update({ status: nextStatus })
+          .eq('id', order.id)
+        if (error) throw error
+      }
+      toast({ title: 'Sucesso', description: 'Status atualizado com sucesso' })
       fetchOrders()
     } catch (error: any) {
       toast({
-        title: 'Erro ao confirmar pedido',
+        title: 'Erro ao atualizar pedido',
         description: error.message,
         variant: 'destructive',
       })
     }
   }
+
+  const handleCancel = async (order: any) => {
+    if (!window.confirm('Tem certeza que deseja cancelar este pedido?')) return
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'Cancelado' })
+        .eq('id', order.id)
+      if (error) throw error
+      toast({ title: 'Sucesso', description: 'Pedido cancelado' })
+      fetchOrders()
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao cancelar pedido',
+        description: error.message,
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const matchesTab = activeTab === 'Todos' || o.status === activeTab
+      const q = search.toLowerCase()
+      const matchesSearch =
+        !q ||
+        o.order_number.toLowerCase().includes(q) ||
+        (o.customers?.name || '').toLowerCase().includes(q)
+      return matchesTab && matchesSearch
+    })
+  }, [orders, activeTab, search])
 
   if (authLoading || loading) {
     return (
@@ -83,91 +137,85 @@ export default function Orders() {
     return (
       <div className="p-8 max-w-6xl mx-auto space-y-8 animate-fade-in-up">
         <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
-        <p className="text-muted-foreground mt-2">
-          Nenhuma organização encontrada. Por favor, conclua a configuração da sua conta.
-        </p>
+        <p className="text-muted-foreground mt-2">Nenhuma organização encontrada.</p>
       </div>
     )
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8 animate-fade-in-up">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
-        <p className="text-muted-foreground mt-2">Gerencie os pedidos recebidos na sua vitrine.</p>
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Pedidos</h1>
+          <p className="text-muted-foreground mt-1">{orders.length} pedidos no total</p>
+        </div>
+        <Button
+          onClick={() => setIsModalOpen(true)}
+          className="rounded-full shadow-md px-6 bg-primary hover:bg-primary/90"
+        >
+          <Plus className="w-4 h-4 mr-2" /> Novo pedido
+        </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Histórico de Pedidos</CardTitle>
-          <CardDescription>Visualize e confirme os pedidos dos seus clientes.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {orders.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <ShoppingCart className="mx-auto h-12 w-12 opacity-50 mb-4" />
-              <p>Nenhum pedido encontrado.</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Número do Pedido</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Itens</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ação</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.order_number}</TableCell>
-                    <TableCell>
-                      <div>{order.customers?.name}</div>
-                      <div className="text-xs text-muted-foreground">{order.customers?.email}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {order.order_items?.map((item: any, idx: number) => (
-                          <div key={idx}>
-                            {item.quantity}x {item.products?.name} ({item.product_skus?.sku_code})
-                          </div>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL',
-                      }).format(order.total)}
-                    </TableCell>
-                    <TableCell>
-                      {order.status === 'Confirmado' ? (
-                        <Badge variant="default" className="bg-green-600 hover:bg-green-700">
-                          Confirmado
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">
-                          <Clock className="w-3 h-3 mr-1" /> Pendente
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {order.status !== 'Confirmado' && (
-                        <Button size="sm" onClick={() => confirmOrder(order.id)}>
-                          <Check className="w-4 h-4 mr-2" /> Confirmar
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+        {STATUSES.map((status) => {
+          const count =
+            status === 'Todos' ? orders.length : orders.filter((o) => o.status === status).length
+          const isActive = activeTab === status
+          return (
+            <button
+              key={status}
+              onClick={() => setActiveTab(status)}
+              className={cn(
+                'px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors border shadow-sm',
+                isActive
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-white text-muted-foreground border-pink-100 hover:bg-pink-50',
+              )}
+            >
+              {status} ({count})
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por cliente ou número do pedido..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-11 rounded-full bg-white border-pink-100 shadow-sm h-12 text-base focus-visible:ring-primary/50"
+        />
+      </div>
+
+      {filteredOrders.length === 0 ? (
+        <div className="text-center py-20 bg-white rounded-2xl border border-pink-100 border-dashed animate-fade-in-up">
+          <PackageOpen className="mx-auto h-12 w-12 text-muted-foreground/30 mb-4" />
+          <p className="text-lg font-medium text-foreground">Nenhum pedido encontrado</p>
+          <p className="text-muted-foreground mt-1 text-sm">Tente ajustar os filtros da busca.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4">
+          {filteredOrders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              onAdvance={handleAdvance}
+              onCancel={handleCancel}
+            />
+          ))}
+        </div>
+      )}
+
+      {isModalOpen && (
+        <NewOrderModal
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          onSuccess={fetchOrders}
+          organizationId={organization.id}
+        />
+      )}
     </div>
   )
 }
