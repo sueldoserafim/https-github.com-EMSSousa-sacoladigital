@@ -12,6 +12,8 @@ import Index from './pages/Index'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import Dashboard from './pages/Dashboard'
+import Products from './pages/Products'
+import ProductDetails from './pages/ProductDetails'
 import Settings from './pages/Settings'
 import Team from './pages/Team'
 import NotFound from './pages/NotFound'
@@ -35,6 +37,8 @@ const App = () => (
             {/* Authenticated App Routes */}
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/products/:id" element={<ProductDetails />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/team" element={<Team />} />
             </Route>

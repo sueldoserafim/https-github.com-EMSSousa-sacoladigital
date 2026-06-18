@@ -41,6 +41,90 @@ export type Database = {
           },
         ]
       }
+      order_items: {
+        Row: {
+          id: string
+          order_id: string | null
+          price: number
+          product_id: string | null
+          quantity: number
+        }
+        Insert: {
+          id?: string
+          order_id?: string | null
+          price?: number
+          product_id?: string | null
+          quantity?: number
+        }
+        Update: {
+          id?: string
+          order_id?: string | null
+          price?: number
+          product_id?: string | null
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'order_items_order_id_fkey'
+            columns: ['order_id']
+            isOneToOne: false
+            referencedRelation: 'orders'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'order_items_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          id: string
+          order_number: string
+          organization_id: string | null
+          status: string
+          total: number
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          order_number: string
+          organization_id?: string | null
+          status?: string
+          total?: number
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          order_number?: string
+          organization_id?: string | null
+          status?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'orders_customer_id_fkey'
+            columns: ['customer_id']
+            isOneToOne: false
+            referencedRelation: 'customers'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'orders_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string
@@ -61,6 +145,41 @@ export type Database = {
           slug?: string | null
         }
         Relationships: []
+      }
+      products: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          organization_id: string | null
+          price: number
+          stock: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          organization_id?: string | null
+          price?: number
+          stock?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string | null
+          price?: number
+          stock?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'products_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
       }
       profiles: {
         Row: {
