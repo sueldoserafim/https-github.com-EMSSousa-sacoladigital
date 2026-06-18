@@ -17,7 +17,10 @@ import Products from './pages/Products'
 import ProductDetails from './pages/ProductDetails'
 import Settings from './pages/Settings'
 import Team from './pages/Team'
-import Storefront from './pages/Storefront'
+import StorefrontLayout from './pages/storefront/StorefrontLayout'
+import StorefrontIndex from './pages/storefront/StorefrontIndex'
+import StorefrontProduct from './pages/storefront/StorefrontProduct'
+import StorefrontSuccess from './pages/storefront/StorefrontSuccess'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -29,7 +32,11 @@ const App = () => (
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
-            <Route path="/vitrine/:slug" element={<Storefront />} />
+            <Route path="/vitrine/:slug" element={<StorefrontLayout />}>
+              <Route index element={<StorefrontIndex />} />
+              <Route path="p/:productId" element={<StorefrontProduct />} />
+              <Route path="success" element={<StorefrontSuccess />} />
+            </Route>
 
             {/* Public Auth Routes */}
             <Route element={<AuthLayout />}>
