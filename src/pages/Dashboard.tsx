@@ -9,6 +9,8 @@ import {
   ChartLegendContent,
 } from '@/components/ui/chart'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts'
+import { Button } from '@/components/ui/button'
+import { Link } from 'react-router-dom'
 
 const data = [
   { name: 'Jan', vendas: 4000 },
@@ -24,12 +26,17 @@ export default function Dashboard() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8 animate-fade-in-up">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Painel</h1>
-        <p className="text-muted-foreground mt-2">
-          Bem-vindo(a) de volta a {organization?.name || 'seu espaço'}. Aqui está o resumo da sua
-          loja.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Painel</h1>
+          <p className="text-muted-foreground mt-2">
+            Bem-vindo(a) de volta a {organization?.name || 'seu espaço'}. Aqui está o resumo da sua
+            loja.
+          </p>
+        </div>
+        <Button asChild>
+          <Link to="/dashboard/pedidos">Ver Pedidos</Link>
+        </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
