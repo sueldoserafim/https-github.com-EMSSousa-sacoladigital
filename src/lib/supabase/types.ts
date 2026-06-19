@@ -252,26 +252,32 @@ export type Database = {
         Row: {
           banner_url: string | null
           created_at: string
+          description: string | null
           id: string
           logo_url: string | null
           name: string
           slug: string | null
+          whatsapp_number: string | null
         }
         Insert: {
           banner_url?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           logo_url?: string | null
           name: string
           slug?: string | null
+          whatsapp_number?: string | null
         }
         Update: {
           banner_url?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           logo_url?: string | null
           name?: string
           slug?: string | null
+          whatsapp_number?: string | null
         }
         Relationships: []
       }
