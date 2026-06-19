@@ -50,6 +50,13 @@ export default function StorefrontLayout() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeCategory, setActiveCategory] = useState('Todos')
+  const [categories, setCategories] = useState<string[]>([
+    'Todos',
+    'Blusas',
+    'Calças',
+    'Vestidos',
+    'Acessórios',
+  ])
   const [productCount, setProductCount] = useState(0)
 
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -82,6 +89,23 @@ export default function StorefrontLayout() {
           .select('*', { count: 'exact', head: true })
           .eq('organization_id', data.id)
         if (count !== null) setProductCount(count)
+
+        // Fetch categories dynamically
+        const { data: attrData } = await supabase
+          .from('attributes')
+          .select('attribute_options(value)')
+          .ilike('name', '%categor%')
+          .eq('organization_id', data.id)
+
+        if (attrData && attrData.length > 0) {
+          const catSet = new Set<string>()
+          attrData.forEach((attr: any) => {
+            attr.attribute_options?.forEach((opt: any) => catSet.add(opt.value))
+          })
+          if (catSet.size > 0) {
+            setCategories(['Todos', ...Array.from(catSet)])
+          }
+        }
       }
       setLoading(false)
     }
@@ -184,7 +208,7 @@ export default function StorefrontLayout() {
               style={{ backgroundImage: `url(${org.banner_url})` }}
             />
           ) : (
-            <div className="h-24 sm:h-32 w-full bg-gradient-to-r from-[#D982B5] to-[#f49acb]" />
+            <div className="h-24 sm:h-32 w-full bg-gradient-to-r from-[#be185d] to-[#f49acb]" />
           )}
 
           <div className="max-w-4xl mx-auto px-4 pb-6 -mt-12 sm:-mt-16 relative z-10 flex flex-col items-center text-center">
@@ -232,40 +256,19 @@ export default function StorefrontLayout() {
           </div>
 
           <div className="border-t border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-40 shadow-sm">
-            <div className="max-w-6xl mx-auto px-4 py-3">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="relative shrink-0 w-28 sm:w-48 md:w-64 group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#D982B5] transition-colors" />
+            <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1 group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#be185d]/50 group-focus-within:text-[#be185d] transition-colors" />
                   <Input
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar..."
-                    className="w-full pl-9 pr-3 h-10 rounded-full border-slate-200 bg-white focus-visible:ring-[#D982B5] shadow-sm text-sm transition-all"
+                    placeholder="Buscar produtos..."
+                    className="w-full pl-10 pr-4 h-11 rounded-full border-[#be185d]/20 bg-white focus-visible:ring-[#be185d] focus-visible:border-[#be185d] shadow-sm text-sm transition-all text-slate-700 placeholder:text-[#be185d]/40"
                   />
                 </div>
 
-                <div className="flex-1 overflow-x-auto no-scrollbar relative -mx-2 px-2 sm:mx-0 sm:px-0">
-                  <div className="flex items-center gap-2 w-max pb-1 sm:pb-0">
-                    {['Todos', 'Lançamentos', 'Promoções', 'Mais Vendidos', 'Acessórios'].map(
-                      (cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => setActiveCategory(cat)}
-                          className={cn(
-                            'whitespace-nowrap px-4 h-10 rounded-full text-sm font-bold transition-all border',
-                            activeCategory === cat
-                              ? 'bg-[#D982B5] text-white border-[#D982B5] shadow-sm'
-                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50',
-                          )}
-                        >
-                          {cat}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                </div>
-
-                <div className="shrink-0 ml-auto">
+                <div className="shrink-0">
                   <Sheet
                     open={cartOpen}
                     onOpenChange={(open) => {
@@ -274,13 +277,13 @@ export default function StorefrontLayout() {
                     }}
                   >
                     <SheetTrigger asChild>
-                      <button className="relative h-10 w-10 sm:w-auto sm:px-5 bg-slate-900 hover:bg-slate-800 text-white rounded-full transition-transform active:scale-95 flex items-center justify-center shadow-sm">
+                      <button className="relative h-11 px-5 bg-[#be185d] hover:bg-[#9d124b] text-white rounded-full transition-transform active:scale-95 flex items-center justify-center shadow-sm">
                         <ShoppingBag className="w-4 h-4" />
                         <span className="hidden sm:inline-block ml-2 text-sm font-bold">
                           Sacola
                         </span>
                         {cart.length > 0 && (
-                          <Badge className="absolute -top-1.5 -right-1.5 px-1.5 min-w-[20px] h-5 flex items-center justify-center bg-[#D982B5] text-white border-none font-bold shadow-sm text-[10px]">
+                          <Badge className="absolute -top-1.5 -right-1.5 px-1.5 min-w-[20px] h-5 flex items-center justify-center bg-white text-[#be185d] border border-[#be185d]/20 font-bold shadow-sm text-[10px]">
                             {cart.length}
                           </Badge>
                         )}
@@ -326,7 +329,7 @@ export default function StorefrontLayout() {
                                           {item.attributes_desc}
                                         </p>
                                       )}
-                                      <p className="font-bold text-[#D982B5] mt-1">
+                                      <p className="font-bold text-[#be185d] mt-1">
                                         {new Intl.NumberFormat('pt-BR', {
                                           style: 'currency',
                                           currency: 'BRL',
@@ -337,7 +340,7 @@ export default function StorefrontLayout() {
                                       <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="h-7 w-7 text-slate-600 hover:bg-white hover:text-[#D982B5] rounded-md"
+                                        className="h-7 w-7 text-slate-600 hover:bg-white hover:text-[#be185d] rounded-md"
                                         onClick={() => updateQuantity(item.sku_id, -1)}
                                       >
                                         <Minus className="h-3 w-3" />
@@ -348,7 +351,7 @@ export default function StorefrontLayout() {
                                       <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="h-7 w-7 text-slate-600 hover:bg-white hover:text-[#D982B5] rounded-md"
+                                        className="h-7 w-7 text-slate-600 hover:bg-white hover:text-[#be185d] rounded-md"
                                         onClick={() => updateQuantity(item.sku_id, 1)}
                                       >
                                         <Plus className="h-3 w-3" />
@@ -375,7 +378,7 @@ export default function StorefrontLayout() {
                                 </span>
                               </div>
                               <Button
-                                className="w-full h-14 text-lg rounded-2xl bg-[#D982B5] hover:bg-[#c272a1] shadow-lg shadow-[#D982B5]/20"
+                                className="w-full h-14 text-lg rounded-2xl bg-[#be185d] hover:bg-[#9d124b] shadow-lg shadow-[#be185d]/20"
                                 onClick={() => setIsCheckout(true)}
                               >
                                 Finalizar Compra
@@ -445,7 +448,7 @@ export default function StorefrontLayout() {
                             </div>
                             <Button
                               type="submit"
-                              className="w-full h-14 text-lg rounded-2xl bg-[#D982B5] hover:bg-[#c272a1] shadow-lg shadow-[#D982B5]/20"
+                              className="w-full h-14 text-lg rounded-2xl bg-[#be185d] hover:bg-[#9d124b] shadow-lg shadow-[#be185d]/20"
                               disabled={checkoutLoading}
                             >
                               {checkoutLoading ? 'Processando...' : 'Confirmar Pedido'}
@@ -464,6 +467,25 @@ export default function StorefrontLayout() {
                       )}
                     </SheetContent>
                   </Sheet>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-x-auto no-scrollbar relative -mx-4 px-4 sm:mx-0 sm:px-0">
+                <div className="flex items-center gap-2 w-max pb-1 sm:pb-0">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveCategory(cat)}
+                      className={cn(
+                        'whitespace-nowrap px-4 h-8 rounded-full text-sm font-semibold transition-all',
+                        activeCategory === cat
+                          ? 'bg-[#be185d] text-white shadow-sm'
+                          : 'bg-[#fdf2f8] text-[#be185d] hover:bg-[#fce7f3]',
+                      )}
+                    >
+                      {cat}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>

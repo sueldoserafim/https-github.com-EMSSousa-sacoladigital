@@ -106,7 +106,7 @@ function ProductModalContent({ product, onClose }: { product: any; onClose: () =
           </div>
         )}
         {hasDiscount && (
-          <div className="absolute top-4 left-4 bg-[#D982B5] text-white font-bold px-3 py-1 rounded-full text-xs shadow-sm z-10">
+          <div className="absolute top-4 left-4 bg-[#be185d] text-white font-bold px-3 py-1 rounded-full text-xs shadow-sm z-10">
             -{discountPercent}% OFF
           </div>
         )}
@@ -115,7 +115,7 @@ function ProductModalContent({ product, onClose }: { product: any; onClose: () =
       {/* Content */}
       <div className="p-6 flex flex-col gap-4 flex-1">
         <div>
-          <span className="text-[#D982B5] text-xs font-bold uppercase tracking-wider">
+          <span className="text-[#be185d] text-xs font-bold uppercase tracking-wider">
             Acessórios
           </span>
           <h2 className="text-2xl font-bold text-slate-900 mt-1 leading-tight">{product.name}</h2>
@@ -133,7 +133,7 @@ function ProductModalContent({ product, onClose }: { product: any; onClose: () =
         </p>
 
         <div className="flex items-baseline gap-2.5 mt-2">
-          <span className="text-3xl font-extrabold text-[#D982B5]">
+          <span className="text-3xl font-extrabold text-[#be185d]">
             {new Intl.NumberFormat('pt-BR', {
               style: 'currency',
               currency: 'BRL',
@@ -169,7 +169,7 @@ function ProductModalContent({ product, onClose }: { product: any; onClose: () =
                         className={cn(
                           'border px-4 py-2 rounded-xl text-sm font-semibold transition-all',
                           isSelected
-                            ? 'border-[#D982B5] bg-[#D982B5]/10 text-[#D982B5]'
+                            ? 'border-[#be185d] bg-[#be185d]/10 text-[#be185d]'
                             : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50',
                         )}
                       >
@@ -185,7 +185,7 @@ function ProductModalContent({ product, onClose }: { product: any; onClose: () =
           <div className="mt-2 mb-4">
             <span className="text-sm font-bold text-slate-900">Tamanho / Variante</span>
             <div className="mt-2.5">
-              <span className="border px-4 py-2 rounded-xl text-sm font-semibold border-[#D982B5] bg-[#D982B5]/10 text-[#D982B5]">
+              <span className="border px-4 py-2 rounded-xl text-sm font-semibold border-[#be185d] bg-[#be185d]/10 text-[#be185d]">
                 Único
               </span>
             </div>
@@ -194,7 +194,7 @@ function ProductModalContent({ product, onClose }: { product: any; onClose: () =
 
         <div className="flex gap-3 mt-auto pt-2">
           <Button
-            className="flex-1 bg-[#D982B5] hover:bg-[#c272a1] text-white rounded-2xl h-14 text-base font-bold shadow-lg shadow-[#D982B5]/30 transition-transform active:scale-[0.98]"
+            className="flex-1 bg-[#be185d] hover:bg-[#9d124b] text-white rounded-2xl h-14 text-base font-bold shadow-lg shadow-[#be185d]/30 transition-transform active:scale-[0.98]"
             disabled={!isFullySelected || isOutOfStock}
             onClick={handleAddToCart}
           >
@@ -228,7 +228,9 @@ export default function StorefrontIndex() {
     const fetchProducts = async () => {
       const { data } = await supabase
         .from('products')
-        .select('id, name, price, product_skus(id, stock, price_override, image_url)')
+        .select(
+          'id, name, price, product_skus(id, stock, price_override, image_url), attributes(name, attribute_options(value))',
+        )
         .eq('organization_id', org.id)
 
       if (data) {
@@ -244,11 +246,25 @@ export default function StorefrontIndex() {
   const filteredProducts = products.filter((p) => {
     if (searchTerm && !p.name.toLowerCase().includes(searchTerm.toLowerCase())) return false
 
-    if (activeCategory === 'Promoções') {
-      const hasDiscount = p.product_skus.some(
-        (s: any) => s.price_override && s.price_override < p.price,
-      )
-      if (!hasDiscount) return false
+    if (activeCategory !== 'Todos') {
+      if (activeCategory === 'Promoções') {
+        const hasDiscount = p.product_skus.some(
+          (s: any) => s.price_override && s.price_override < p.price,
+        )
+        if (!hasDiscount) return false
+      } else {
+        const hasCategoryAttr = p.attributes?.some(
+          (attr: any) =>
+            attr.name.toLowerCase().includes('categor') &&
+            attr.attribute_options?.some((opt: any) => opt.value === activeCategory),
+        )
+
+        const nameIncludes = p.name.toLowerCase().includes(activeCategory.toLowerCase())
+
+        if (!hasCategoryAttr && !nameIncludes) {
+          return false
+        }
+      }
     }
 
     return true
@@ -292,13 +308,13 @@ export default function StorefrontIndex() {
                     onClick={(e) => {
                       e.stopPropagation()
                     }}
-                    className="absolute top-3 right-3 z-20 p-2 bg-white/90 backdrop-blur-sm rounded-full text-slate-300 hover:text-[#D982B5] hover:bg-white transition-colors shadow-sm"
+                    className="absolute top-3 right-3 z-20 p-2 bg-white/90 backdrop-blur-sm rounded-full text-slate-300 hover:text-[#be185d] hover:bg-white transition-colors shadow-sm"
                   >
                     <Heart className="w-4 h-4" />
                   </button>
 
                   {hasDiscount && (
-                    <Badge className="absolute top-3 left-3 z-20 bg-[#D982B5] hover:bg-[#c272a1] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
+                    <Badge className="absolute top-3 left-3 z-20 bg-[#be185d] hover:bg-[#9d124b] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
                       -{discountPercent}%
                     </Badge>
                   )}
@@ -327,7 +343,7 @@ export default function StorefrontIndex() {
                   </div>
 
                   <CardContent className="p-4 sm:p-5 flex flex-col flex-1 gap-1.5">
-                    <h3 className="font-medium text-slate-800 line-clamp-2 text-sm sm:text-base leading-tight group-hover:text-[#D982B5] transition-colors">
+                    <h3 className="font-medium text-slate-800 line-clamp-2 text-sm sm:text-base leading-tight group-hover:text-[#be185d] transition-colors">
                       {product.name}
                     </h3>
 
@@ -349,7 +365,7 @@ export default function StorefrontIndex() {
                               currency: 'BRL',
                             }).format(originalPrice)}
                           </span>
-                          <span className="text-lg font-extrabold text-[#D982B5]">
+                          <span className="text-lg font-extrabold text-[#be185d]">
                             {new Intl.NumberFormat('pt-BR', {
                               style: 'currency',
                               currency: 'BRL',
