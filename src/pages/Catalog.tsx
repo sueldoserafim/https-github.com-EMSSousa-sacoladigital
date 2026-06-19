@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Badge } from '@/components/ui/badge'
 import {
   FileDown,
   Settings2,
@@ -22,6 +24,9 @@ import {
   Eye,
   Download,
   Plus,
+  Store,
+  Star,
+  ShoppingBag,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
@@ -39,6 +44,8 @@ export default function Catalog() {
   const [showPrice, setShowPrice] = useState(true)
   const [showLogo, setShowLogo] = useState(true)
   const [showWhatsApp, setShowWhatsApp] = useState(true)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [selectedHistoryUrl, setSelectedHistoryUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (organization?.id) {
@@ -172,7 +179,7 @@ export default function Catalog() {
 
   const handleHistoryClick = (item: any) => {
     if (item.pdf_url) {
-      window.open(item.pdf_url, '_blank')
+      setSelectedHistoryUrl(item.pdf_url)
     } else {
       toast.error('PDF não disponível para este catálogo antigo.')
     }
@@ -186,7 +193,7 @@ export default function Catalog() {
 
   const openPdf = (e: React.MouseEvent, url: string) => {
     e.stopPropagation()
-    window.open(url, '_blank')
+    setSelectedHistoryUrl(url)
   }
 
   const toggleProduct = (id: string, skus: any[] = []) => {
@@ -462,13 +469,15 @@ export default function Catalog() {
                 <div className="space-y-4 animate-fade-in-up">
                   <div className="flex flex-col items-center justify-center text-green-600 mb-4 gap-2">
                     <CheckCircle className="w-8 h-8" />
-                    <span className="font-bold text-lg">Catálogo Gerado!</span>
+                    <span className="font-bold text-lg text-center leading-tight">
+                      Catálogo gerado com sucesso!
+                    </span>
                   </div>
                   <div className="flex gap-2">
                     <Button
                       variant="default"
                       className="flex-1 gap-2"
-                      onClick={() => window.open(generatedPdf.url, '_blank')}
+                      onClick={() => setPreviewOpen(true)}
                     >
                       <Eye className="w-4 h-4" /> Visualizar
                     </Button>
@@ -494,8 +503,23 @@ export default function Catalog() {
                       setSelectedProducts(new Set())
                     }}
                   >
-                    <Plus className="w-4 h-4" /> Criar Novo
+                    <Plus className="w-4 h-4" /> Novo Catálogo
                   </Button>
+
+                  <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+                    <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
+                      <DialogHeader className="px-6 py-4 border-b shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                        <DialogTitle>Visualização do Catálogo</DialogTitle>
+                      </DialogHeader>
+                      <div className="flex-1 bg-muted/30">
+                        <iframe
+                          src={`${generatedPdf.url}#toolbar=0`}
+                          className="w-full h-full border-0"
+                          title="Preview do Catálogo"
+                        />
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               )}
             </CardContent>
@@ -562,127 +586,268 @@ export default function Catalog() {
         </div>
       </div>
 
+      <Dialog
+        open={!!selectedHistoryUrl}
+        onOpenChange={(open) => !open && setSelectedHistoryUrl(null)}
+      >
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="px-6 py-4 border-b shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <DialogTitle>Visualização do Catálogo</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 bg-muted/30">
+            {selectedHistoryUrl && (
+              <iframe
+                src={`${selectedHistoryUrl}#toolbar=0`}
+                className="w-full h-full border-0"
+                title="Preview do Catálogo"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Hidden container for PDF generation */}
       <div className="absolute top-0 left-[-9999px] w-[210mm] pointer-events-none z-[-1]">
         <div
           id="hidden-catalog-content"
-          className="w-full max-w-[210mm] bg-white min-h-[297mm] relative flex flex-col font-sans text-gray-900"
+          className="w-full max-w-[210mm] bg-slate-50 min-h-[297mm] relative flex flex-col font-sans"
         >
-          {/* Header with Fluid Curves & Gradients */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500 text-white pb-40 pt-20 px-16 rounded-b-[5rem] shrink-0">
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/20 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none mix-blend-overlay"></div>
-            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-yellow-300/30 rounded-full blur-3xl -ml-24 -mb-24 pointer-events-none mix-blend-overlay"></div>
-
-            <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-8 text-center md:text-left">
-              <div className="flex-1">
-                <div className="inline-block bg-white text-pink-600 font-black px-6 py-2 rounded-full text-sm uppercase tracking-widest mb-6 shadow-xl transform -rotate-2 border-2 border-pink-100">
-                  ⚡ Mega Sale
-                </div>
-                <h1 className="text-5xl font-black tracking-tighter mb-4 drop-shadow-lg leading-tight">
-                  {organization?.name || 'Catálogo Exclusivo'}
-                </h1>
-                <p className="text-white/90 text-xl font-bold tracking-wide max-w-lg leading-snug">
-                  Coleção Premium com descontos imperdíveis. Aproveite as ofertas!
-                </p>
+          {/* Header */}
+          <div className="relative w-full shrink-0 flex flex-col">
+            <div className="relative w-full">
+              <div className="absolute inset-0 z-0">
+                {organization?.banner_url ? (
+                  <>
+                    <div
+                      className="w-full h-full bg-cover bg-center"
+                      style={{ backgroundImage: `url(${organization.banner_url})` }}
+                    />
+                    <div className="absolute inset-0 bg-black/40" />
+                  </>
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-r from-[#be185d] to-[#f49acb]" />
+                )}
               </div>
-              {showLogo && organization?.name && (
-                <div className="w-36 h-36 bg-white/10 backdrop-blur-xl rounded-full flex items-center justify-center border-4 border-white/30 p-8 shadow-2xl shrink-0">
-                  <img
-                    src={`https://img.usecurling.com/i?q=${encodeURIComponent(organization.name)}&shape=outline&color=white`}
-                    className="w-full h-full object-contain opacity-100 filter brightness-0 invert"
-                    alt="Logo"
-                    crossOrigin="anonymous"
-                  />
+
+              <div className="px-8 pt-12 pb-10 relative z-10 flex flex-col items-center text-center">
+                {showLogo && (
+                  <div className="w-32 h-32 rounded-full border-4 border-white/20 overflow-hidden bg-white shadow-xl flex items-center justify-center mb-4">
+                    {organization?.logo_url ? (
+                      <img
+                        src={organization.logo_url}
+                        alt={organization.name}
+                        className="w-full h-full object-cover"
+                        crossOrigin="anonymous"
+                      />
+                    ) : (
+                      <Store className="w-10 h-10 text-slate-300" />
+                    )}
+                  </div>
+                )}
+
+                <h1 className="text-4xl font-extrabold text-white tracking-tight drop-shadow-md">
+                  {organization?.name || 'Catálogo de Produtos'}
+                </h1>
+
+                <p className="mt-3 text-base text-white/90 max-w-lg mx-auto leading-relaxed drop-shadow">
+                  {organization?.description ||
+                    'Encontre os melhores produtos com a qualidade que você merece.'}
+                </p>
+
+                <div className="flex items-center justify-center gap-4 mt-5 text-sm font-medium text-white/90 drop-shadow">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                    <span>4.9 (1k+ avaliações)</span>
+                  </div>
+                  <div className="w-1 h-1 rounded-full bg-white/50" />
+                  <div className="flex items-center gap-1">
+                    <ShoppingBag className="w-4 h-4 text-white/90" />
+                    <span>{catalogProducts.length} produtos</span>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
           {/* Content */}
-          <div className="px-16 py-8 -mt-24 relative z-20 flex-grow">
+          <div className="px-8 py-10 flex-grow bg-slate-50">
             {format === 'grid' ? (
-              <div className="grid grid-cols-3 gap-x-8 gap-y-12">
+              <div className="grid grid-cols-3 gap-6">
                 {catalogProducts.map((p) => {
-                  const img =
-                    p.product_skus?.[0]?.image_url ||
-                    `https://img.usecurling.com/p/400/400?q=${encodeURIComponent(p.name)}&color=gray`
+                  const inStockSkus = p.product_skus?.filter((s: any) => s.stock > 0) || []
+                  const isOutOfStock = inStockSkus.length === 0
+
+                  const minPrice =
+                    p.product_skus?.reduce((min: number, sku: any) => {
+                      const price = sku.price_override || p.price
+                      return price < min ? price : min
+                    }, p.price || 0) || p.price
+
+                  const originalPrice = p.price
+                  const hasDiscount = !isOutOfStock && minPrice < originalPrice
+                  const discountPercent = hasDiscount
+                    ? Math.round(((originalPrice - minPrice) / originalPrice) * 100)
+                    : 0
+
+                  const imageUrl = p.product_skus?.[0]?.image_url
+
                   return (
-                    <div
+                    <Card
                       key={p.id}
-                      className="bg-white rounded-[2rem] p-6 border border-gray-100 overflow-visible shadow-xl shadow-gray-200/50 break-inside-avoid flex flex-col transition-all relative mt-6"
+                      className="flex flex-col h-full overflow-hidden rounded-[24px] border-slate-100 shadow-sm relative bg-white break-inside-avoid"
                     >
-                      {showPrice && (
-                        <div className="absolute -top-6 -right-6 w-24 h-24 bg-white rounded-full flex items-center justify-center p-1 shadow-xl z-30 transform rotate-12">
-                          <div className="w-full h-full rounded-full border-2 border-dashed border-pink-500 flex flex-col items-center justify-center text-pink-600 bg-pink-50/50">
-                            <span className="text-[10px] uppercase font-bold tracking-tighter leading-none mb-1 text-pink-400">
-                              Por
-                            </span>
-                            <span className="font-black text-sm leading-none">
-                              {formatCurrency(p.price)}
-                            </span>
-                          </div>
+                      {hasDiscount && showPrice && (
+                        <Badge className="absolute top-3 left-3 z-20 bg-[#be185d] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
+                          -{discountPercent}%
+                        </Badge>
+                      )}
+
+                      {isOutOfStock && (
+                        <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">
+                          <Badge
+                            variant="secondary"
+                            className="bg-slate-900/80 text-white border-none font-semibold px-4 py-1.5 rounded-full"
+                          >
+                            Sem estoque
+                          </Badge>
                         </div>
                       )}
-                      <div className="aspect-square bg-gray-50/50 rounded-2xl p-6 flex items-center justify-center relative group mb-6">
-                        <img
-                          src={img}
-                          alt={p.name}
-                          className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
-                          crossOrigin="anonymous"
-                        />
+
+                      <div className="aspect-[4/5] bg-slate-50 relative overflow-hidden flex items-center justify-center shrink-0">
+                        {imageUrl ? (
+                          <img
+                            src={imageUrl}
+                            alt={p.name}
+                            className="w-full h-full object-cover"
+                            crossOrigin="anonymous"
+                          />
+                        ) : (
+                          <Store className="w-12 h-12 text-slate-300" />
+                        )}
                       </div>
-                      <div className="flex flex-col flex-grow justify-between bg-white z-20 text-center px-2">
-                        <h3 className="font-extrabold text-gray-800 leading-snug mb-2 line-clamp-2 text-lg">
+
+                      <CardContent className="p-5 flex flex-col flex-1 gap-1.5">
+                        <h3 className="font-medium text-slate-800 line-clamp-2 text-base leading-tight">
                           {p.name}
                         </h3>
-                        <p className="text-gray-400 font-mono text-xs uppercase tracking-widest mt-2">
-                          Ref: {p.id.split('-')[0]}
-                        </p>
-                      </div>
-                    </div>
+
+                        <div className="flex items-center gap-0.5 text-yellow-400 mt-1">
+                          {[1, 2, 3, 4, 5].map((i) => (
+                            <Star key={i} className="w-3 h-3 fill-current" />
+                          ))}
+                          <span className="text-xs text-slate-400 ml-1 font-medium">(24)</span>
+                        </div>
+
+                        {showPrice && (
+                          <div className="mt-auto pt-3 flex flex-col">
+                            {hasDiscount ? (
+                              <>
+                                <span className="text-xs text-slate-400 line-through font-medium">
+                                  {formatCurrency(originalPrice)}
+                                </span>
+                                <span className="text-lg font-extrabold text-[#be185d]">
+                                  {formatCurrency(minPrice)}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-lg font-extrabold text-[#be185d]">
+                                {formatCurrency(minPrice)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   )
                 })}
               </div>
             ) : (
-              <div className="space-y-12">
+              <div className="space-y-6">
                 {catalogProducts.map((p) => {
-                  const img =
-                    p.product_skus?.[0]?.image_url ||
-                    `https://img.usecurling.com/p/200/200?q=${encodeURIComponent(p.name)}&color=gray`
+                  const inStockSkus = p.product_skus?.filter((s: any) => s.stock > 0) || []
+                  const isOutOfStock = inStockSkus.length === 0
+
+                  const minPrice =
+                    p.product_skus?.reduce((min: number, sku: any) => {
+                      const price = sku.price_override || p.price
+                      return price < min ? price : min
+                    }, p.price || 0) || p.price
+
+                  const originalPrice = p.price
+                  const hasDiscount = !isOutOfStock && minPrice < originalPrice
+                  const discountPercent = hasDiscount
+                    ? Math.round(((originalPrice - minPrice) / originalPrice) * 100)
+                    : 0
+
+                  const imageUrl = p.product_skus?.[0]?.image_url
+
                   return (
-                    <div
+                    <Card
                       key={p.id}
-                      className="flex gap-8 bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-xl shadow-gray-200/50 break-inside-avoid items-center relative overflow-visible mt-6"
+                      className="flex overflow-hidden rounded-[24px] border-slate-100 shadow-sm relative bg-white break-inside-avoid items-stretch"
                     >
-                      {showPrice && (
-                        <div className="absolute top-1/2 -translate-y-1/2 -right-8 w-28 h-28 bg-white rounded-full flex items-center justify-center p-1 shadow-2xl z-30 transform -rotate-12">
-                          <div className="w-full h-full rounded-full border-2 border-dashed border-orange-400 flex flex-col items-center justify-center text-orange-600 bg-orange-50/50">
-                            <span className="text-[10px] uppercase font-bold tracking-tighter leading-none mb-1 text-orange-400">
-                              Por Apenas
-                            </span>
-                            <span className="font-black text-lg leading-none">
-                              {formatCurrency(p.price)}
-                            </span>
-                          </div>
+                      {hasDiscount && showPrice && (
+                        <Badge className="absolute top-3 left-3 z-20 bg-[#be185d] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
+                          -{discountPercent}%
+                        </Badge>
+                      )}
+
+                      {isOutOfStock && (
+                        <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">
+                          <Badge
+                            variant="secondary"
+                            className="bg-slate-900/80 text-white border-none font-semibold px-4 py-1.5 rounded-full"
+                          >
+                            Sem estoque
+                          </Badge>
                         </div>
                       )}
-                      <div className="w-48 h-48 flex-shrink-0 bg-gray-50/80 rounded-3xl overflow-hidden p-6 relative">
-                        <img
-                          src={img}
-                          alt={p.name}
-                          className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
-                          crossOrigin="anonymous"
-                        />
+
+                      <div className="w-48 h-48 bg-slate-50 relative overflow-hidden flex items-center justify-center shrink-0">
+                        {imageUrl ? (
+                          <img
+                            src={imageUrl}
+                            alt={p.name}
+                            className="w-full h-full object-cover"
+                            crossOrigin="anonymous"
+                          />
+                        ) : (
+                          <Store className="w-12 h-12 text-slate-300" />
+                        )}
                       </div>
-                      <div className="flex-grow pl-6 pr-16">
-                        <h3 className="font-black text-3xl text-gray-800 mb-4 leading-tight">
+
+                      <CardContent className="p-6 flex flex-col flex-1 justify-center">
+                        <h3 className="font-medium text-slate-800 line-clamp-2 text-xl leading-tight mb-2">
                           {p.name}
                         </h3>
-                        <p className="text-gray-400 font-mono text-sm uppercase tracking-widest bg-gray-50 inline-block px-4 py-2 rounded-lg mt-2 border border-gray-100">
-                          Ref: {p.id.split('-')[0]}
-                        </p>
-                      </div>
-                    </div>
+
+                        <div className="flex items-center gap-0.5 text-yellow-400 mb-4">
+                          {[1, 2, 3, 4, 5].map((i) => (
+                            <Star key={i} className="w-4 h-4 fill-current" />
+                          ))}
+                          <span className="text-xs text-slate-400 ml-1 font-medium">(24)</span>
+                        </div>
+
+                        {showPrice && (
+                          <div className="mt-auto flex items-baseline gap-2">
+                            {hasDiscount ? (
+                              <>
+                                <span className="text-2xl font-extrabold text-[#be185d]">
+                                  {formatCurrency(minPrice)}
+                                </span>
+                                <span className="text-sm text-slate-400 line-through font-medium">
+                                  {formatCurrency(originalPrice)}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-2xl font-extrabold text-slate-900">
+                                {formatCurrency(minPrice)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   )
                 })}
               </div>
@@ -690,52 +855,46 @@ export default function Catalog() {
           </div>
 
           {/* Unified Footer */}
-          <div className="mt-16 bg-gray-50 rounded-t-[4rem] pb-16 pt-20 px-16 text-center flex flex-col items-center gap-8 relative overflow-hidden shrink-0 break-inside-avoid">
-            <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-500"></div>
-
-            <div className="w-full max-w-3xl grid grid-cols-3 gap-8 text-left z-10">
+          <div className="bg-white border-t border-slate-100 pb-12 pt-12 px-8 text-center flex flex-col items-center gap-6 relative shrink-0 break-inside-avoid">
+            <div className="w-full grid grid-cols-3 gap-6 text-left z-10 text-sm">
               <div>
-                <h4 className="font-bold text-gray-900 mb-4 uppercase tracking-widest text-xs">
-                  Contato
-                </h4>
+                <h4 className="font-bold text-slate-900 mb-3 tracking-widest text-xs">Contato</h4>
                 {showWhatsApp && (
-                  <p className="text-gray-600 font-medium mb-3 flex items-center gap-3 text-sm">
-                    <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-sm shrink-0">
+                  <p className="text-slate-600 mb-2 flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0">
                       📱
                     </span>
                     +55 (11) 99999-9999
                   </p>
                 )}
-                <p className="text-gray-600 font-medium flex items-center gap-3 text-sm">
-                  <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm shrink-0">
+                <p className="text-slate-600 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
                     ✉️
                   </span>
                   contato@{organization?.slug || 'empresa'}.com.br
                 </p>
               </div>
               <div>
-                <h4 className="font-bold text-gray-900 mb-4 uppercase tracking-widest text-xs">
+                <h4 className="font-bold text-slate-900 mb-3 tracking-widest text-xs">
                   Redes Sociais
                 </h4>
-                <p className="text-gray-600 font-medium mb-3 flex items-center gap-3 text-sm">
-                  <span className="w-8 h-8 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center text-sm shrink-0">
+                <p className="text-slate-600 mb-2 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-[#be185d]/10 text-[#be185d] flex items-center justify-center shrink-0">
                     📸
                   </span>
                   @{organization?.slug || 'instagram'}
                 </p>
-                <p className="text-gray-600 font-medium flex items-center gap-3 text-sm">
-                  <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm shrink-0">
+                <p className="text-slate-600 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
                     📘
                   </span>
                   fb.com/{organization?.slug || 'facebook'}
                 </p>
               </div>
               <div>
-                <h4 className="font-bold text-gray-900 mb-4 uppercase tracking-widest text-xs">
-                  Endereço
-                </h4>
-                <p className="text-gray-600 font-medium leading-relaxed text-sm">
-                  <span className="w-8 h-8 rounded-full bg-gray-200 text-gray-700 inline-flex items-center justify-center text-sm mr-3 float-left shrink-0">
+                <h4 className="font-bold text-slate-900 mb-3 tracking-widest text-xs">Endereço</h4>
+                <p className="text-slate-600 leading-relaxed">
+                  <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 inline-flex items-center justify-center mr-2 float-left shrink-0">
                     📍
                   </span>
                   Av. Paulista, 1000
@@ -747,9 +906,9 @@ export default function Catalog() {
               </div>
             </div>
 
-            <div className="w-full h-px bg-gray-200 my-4 max-w-3xl"></div>
+            <div className="w-full h-px bg-slate-100 my-2"></div>
 
-            <div className="text-gray-400 text-xs font-semibold tracking-wide flex justify-between w-full max-w-3xl">
+            <div className="text-slate-400 text-xs font-medium tracking-wide flex justify-between w-full">
               <p>Catálogo gerado em {new Date().toLocaleDateString('pt-BR')}</p>
               <p>
                 {new Date().getFullYear()} © {organization?.name}
