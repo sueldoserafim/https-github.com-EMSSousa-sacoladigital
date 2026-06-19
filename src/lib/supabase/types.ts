@@ -93,6 +93,7 @@ export type Database = {
           id: string
           name: string
           organization_id: string | null
+          pdf_url: string | null
           settings: Json
         }
         Insert: {
@@ -100,6 +101,7 @@ export type Database = {
           id?: string
           name: string
           organization_id?: string | null
+          pdf_url?: string | null
           settings: Json
         }
         Update: {
@@ -107,6 +109,7 @@ export type Database = {
           id?: string
           name?: string
           organization_id?: string | null
+          pdf_url?: string | null
           settings?: Json
         }
         Relationships: [
