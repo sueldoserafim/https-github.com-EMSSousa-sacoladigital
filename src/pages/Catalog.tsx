@@ -45,7 +45,12 @@ export default function Catalog() {
 
     if (data) {
       setProducts(data)
-      setSelectedProducts(new Set(data.map((p) => p.id)))
+      const ids = new Set<string>()
+      data.forEach((p) => {
+        ids.add(p.id)
+        p.product_skus?.forEach((s: any) => ids.add(s.id))
+      })
+      setSelectedProducts(ids)
     }
     setLoading(false)
   }
@@ -99,10 +104,26 @@ export default function Catalog() {
     window.open('/catalog/preview', '_blank')
   }
 
-  const toggleProduct = (id: string) => {
+  const toggleProduct = (id: string, skus: any[] = []) => {
     const next = new Set(selectedProducts)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
+    if (next.has(id)) {
+      next.delete(id)
+      skus.forEach((s) => next.delete(s.id))
+    } else {
+      next.add(id)
+      skus.forEach((s) => next.add(s.id))
+    }
+    setSelectedProducts(next)
+  }
+
+  const toggleSku = (skuId: string, productId: string) => {
+    const next = new Set(selectedProducts)
+    if (next.has(skuId)) {
+      next.delete(skuId)
+    } else {
+      next.add(skuId)
+      next.add(productId)
+    }
     setSelectedProducts(next)
   }
 
@@ -118,9 +139,15 @@ export default function Catalog() {
   const toggleAllFiltered = (checked: boolean) => {
     const next = new Set(selectedProducts)
     if (checked) {
-      filteredProducts.forEach((p) => next.add(p.id))
+      filteredProducts.forEach((p) => {
+        next.add(p.id)
+        p.product_skus?.forEach((s: any) => next.add(s.id))
+      })
     } else {
-      filteredProducts.forEach((p) => next.delete(p.id))
+      filteredProducts.forEach((p) => {
+        next.delete(p.id)
+        p.product_skus?.forEach((s: any) => next.delete(s.id))
+      })
     }
     setSelectedProducts(next)
   }
@@ -246,41 +273,64 @@ export default function Catalog() {
                     {filteredProducts.map((p) => (
                       <div
                         key={p.id}
-                        className="flex items-center p-4 hover:bg-muted/30 transition-colors cursor-pointer group"
-                        onClick={() => toggleProduct(p.id)}
+                        className="flex flex-col border-b last:border-0 hover:bg-muted/10 transition-colors"
                       >
-                        <Checkbox
-                          checked={selectedProducts.has(p.id)}
-                          className="mr-4 pointer-events-none"
-                        />
-                        <div className="w-12 h-12 bg-gray-50 rounded-lg flex-shrink-0 mr-4 overflow-hidden border flex items-center justify-center p-1">
-                          {p.product_skus?.[0]?.image_url ? (
-                            <img
-                              src={p.product_skus[0].image_url}
-                              alt={p.name}
-                              className="w-full h-full object-contain mix-blend-multiply"
-                            />
-                          ) : (
-                            <img
-                              src={`https://img.usecurling.com/p/100/100?q=${encodeURIComponent(p.name)}`}
-                              alt={p.name}
-                              className="w-full h-full object-cover"
-                            />
-                          )}
+                        <div
+                          className="flex items-center p-4 cursor-pointer group"
+                          onClick={() => toggleProduct(p.id, p.product_skus)}
+                        >
+                          <Checkbox
+                            checked={selectedProducts.has(p.id)}
+                            className="mr-4 pointer-events-none"
+                          />
+                          <div className="w-12 h-12 bg-gray-50 rounded-lg flex-shrink-0 mr-4 overflow-hidden border flex items-center justify-center p-1">
+                            {p.product_skus?.[0]?.image_url ? (
+                              <img
+                                src={p.product_skus[0].image_url}
+                                alt={p.name}
+                                className="w-full h-full object-contain mix-blend-multiply"
+                              />
+                            ) : (
+                              <img
+                                src={`https://img.usecurling.com/p/100/100?q=${encodeURIComponent(p.name)}`}
+                                alt={p.name}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </div>
+                          <div className="flex-grow min-w-0">
+                            <p className="font-semibold text-sm truncate">{p.name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {p.product_skus?.length > 0
+                                ? `${p.product_skus.length} variação(ões)`
+                                : 'Sem variações'}
+                            </p>
+                          </div>
+                          <div className="text-right pl-4">
+                            <p className="font-bold text-sm text-foreground">
+                              {formatCurrency(p.price)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-grow min-w-0">
-                          <p className="font-semibold text-sm truncate">{p.name}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {p.product_skus?.length > 0
-                              ? `${p.product_skus.length} variação(ões)`
-                              : 'Sem variações'}
-                          </p>
-                        </div>
-                        <div className="text-right pl-4">
-                          <p className="font-bold text-sm text-foreground">
-                            {formatCurrency(p.price)}
-                          </p>
-                        </div>
+                        {p.product_skus && p.product_skus.length > 0 && (
+                          <div className="pl-14 pr-4 pb-3 space-y-2">
+                            {p.product_skus.map((sku: any) => (
+                              <div
+                                key={sku.id}
+                                className="flex items-center text-sm cursor-pointer hover:bg-muted/30 p-2 rounded-md transition-colors"
+                                onClick={() => toggleSku(sku.id, p.id)}
+                              >
+                                <Checkbox
+                                  checked={selectedProducts.has(sku.id)}
+                                  className="mr-3 pointer-events-none h-3.5 w-3.5"
+                                />
+                                <span className="text-muted-foreground flex-grow">
+                                  SKU: {sku.sku_code}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                     {filteredProducts.length === 0 && (
@@ -308,10 +358,11 @@ export default function Catalog() {
                 ) : (
                   <FileDown className="w-6 h-6" />
                 )}
-                Gerar PDF Premium
+                Visualizar Catálogo Premium
               </Button>
               <p className="text-xs text-center text-muted-foreground mt-4 leading-relaxed">
-                O PDF será aberto em uma nova aba para visualização antes de ser impresso ou salvo.
+                O catálogo será aberto em uma nova aba com design editorial exclusivo para
+                visualização ou impressão.
               </p>
             </CardContent>
           </Card>

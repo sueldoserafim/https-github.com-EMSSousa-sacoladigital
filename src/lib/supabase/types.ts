@@ -87,6 +87,38 @@ export type Database = {
           },
         ]
       }
+      catalog_histories: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          organization_id: string | null
+          settings: Json
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          organization_id?: string | null
+          settings: Json
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          organization_id?: string | null
+          settings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'catalog_histories_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string

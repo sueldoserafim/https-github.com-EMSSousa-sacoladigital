@@ -35,19 +35,25 @@ export default function CatalogPreview() {
       .from('products')
       .select(`
         id, name, price,
-        product_skus ( id, image_url )
+        product_skus ( id, image_url, sku_code )
       `)
       .in('id', ids)
       .order('name', { ascending: true })
 
-    if (data) setProducts(data)
+    if (data) {
+      const filteredData = data.map((p) => ({
+        ...p,
+        product_skus: p.product_skus.filter((s: any) => ids.includes(s.id)),
+      }))
+      setProducts(filteredData)
+    }
     setLoading(false)
   }
 
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
       </div>
     )
   }
@@ -66,11 +72,11 @@ export default function CatalogPreview() {
 
   const { format, showPrice, showLogo, showWhatsApp } = settings
   const formatMoney = (val: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0)
 
   return (
-    <div className="min-h-screen bg-gray-100 print:bg-white font-sans text-gray-900 pb-12 print:pb-0">
-      <div className="fixed top-6 right-6 print:hidden z-50">
+    <div className="min-h-screen bg-gray-100 print:bg-white font-sans text-gray-900 print:pb-0 flex flex-col items-center">
+      <div className="fixed bottom-6 right-6 print:hidden z-50">
         <Button
           onClick={() => window.print()}
           className="gap-2 shadow-2xl rounded-full px-8 h-14 text-base font-bold bg-gray-900 hover:bg-gray-800 text-white transition-transform hover:scale-105"
@@ -80,25 +86,32 @@ export default function CatalogPreview() {
         </Button>
       </div>
 
-      <div className="max-w-[210mm] mx-auto bg-white min-h-[297mm] shadow-2xl print:shadow-none print:w-full print:max-w-none print:m-0 mt-8 print:mt-0 relative overflow-hidden">
+      <div className="w-full max-w-[210mm] bg-white min-h-[297mm] shadow-2xl print:shadow-none print:w-full print:max-w-none my-8 print:my-0 relative flex flex-col">
         {/* Header with Fluid Curves & Gradients */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-500 text-white pb-32 pt-16 px-12 rounded-b-[4rem] print:rounded-b-[4rem]">
+        <div className="relative overflow-hidden bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500 text-white pb-40 pt-20 px-16 rounded-b-[5rem] print:rounded-b-[5rem] shrink-0">
           {/* Decorative abstract shapes */}
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none"></div>
-          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-white/20 rounded-full blur-2xl -ml-24 -mb-24 pointer-events-none"></div>
+          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/20 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none mix-blend-overlay"></div>
+          <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-yellow-300/30 rounded-full blur-3xl -ml-24 -mb-24 pointer-events-none mix-blend-overlay"></div>
 
-          <div className="relative z-10 flex justify-between items-start">
-            <div>
-              <h1 className="text-5xl font-extrabold tracking-tight mb-3 drop-shadow-md">
-                {organization?.name || 'Catálogo de Produtos'}
+          <div className="absolute top-20 right-20 w-32 h-32 bg-white/10 rounded-full border-4 border-white/20 border-dashed animate-[spin_10s_linear_infinite] pointer-events-none"></div>
+
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-8 text-center md:text-left">
+            <div className="flex-1">
+              <div className="inline-block bg-white text-pink-600 font-black px-6 py-2 rounded-full text-sm uppercase tracking-widest mb-6 shadow-xl transform -rotate-2 border-2 border-pink-100">
+                ⚡ Mega Sale
+              </div>
+              <h1 className="text-5xl md:text-6xl font-black tracking-tighter mb-4 drop-shadow-lg leading-tight">
+                {organization?.name || 'Catálogo Exclusivo'}
               </h1>
-              <p className="text-white/90 text-2xl font-medium tracking-wide">Coleção Premium</p>
+              <p className="text-white/90 text-xl font-bold tracking-wide max-w-lg leading-snug">
+                Coleção Premium com descontos imperdíveis. Aproveite as ofertas!
+              </p>
             </div>
             {showLogo && (
-              <div className="w-28 h-28 bg-white/10 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 p-4 shadow-xl">
+              <div className="w-36 h-36 bg-white/10 backdrop-blur-xl rounded-full flex items-center justify-center border-4 border-white/30 p-8 shadow-2xl shrink-0">
                 <img
                   src={`https://img.usecurling.com/i?q=${encodeURIComponent(organization?.name || 'brand')}&shape=outline&color=white`}
-                  className="w-full h-full object-contain opacity-95 filter brightness-0 invert"
+                  className="w-full h-full object-contain opacity-100 filter brightness-0 invert"
                   alt="Logo"
                 />
               </div>
@@ -107,9 +120,9 @@ export default function CatalogPreview() {
         </div>
 
         {/* Content */}
-        <div className="px-12 py-12 -mt-20 relative z-20 min-h-[500px]">
+        <div className="px-16 py-8 -mt-24 relative z-20 flex-grow">
           {format === 'grid' ? (
-            <div className="grid grid-cols-3 gap-8">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-12">
               {products.map((p) => {
                 const img =
                   p.product_skus?.[0]?.image_url ||
@@ -117,36 +130,41 @@ export default function CatalogPreview() {
                 return (
                   <div
                     key={p.id}
-                    className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-xl shadow-gray-200/50 print:shadow-none print:border-gray-200 break-inside-avoid flex flex-col transition-all"
+                    className="bg-white rounded-[2rem] p-6 border border-gray-100 overflow-visible shadow-xl shadow-gray-200/50 print:shadow-none print:border-gray-200 break-inside-avoid flex flex-col transition-all relative mt-6"
                   >
-                    <div className="aspect-square bg-gray-50/50 p-6 flex items-center justify-center relative group">
+                    {showPrice && (
+                      <div className="absolute -top-6 -right-6 w-24 h-24 bg-white rounded-full flex items-center justify-center p-1 shadow-xl z-30 transform rotate-12">
+                        <div className="w-full h-full rounded-full border-2 border-dashed border-pink-500 flex flex-col items-center justify-center text-pink-600 bg-pink-50/50">
+                          <span className="text-[10px] uppercase font-bold tracking-tighter leading-none mb-1 text-pink-400">
+                            Por
+                          </span>
+                          <span className="font-black text-sm leading-none">
+                            {formatMoney(p.price)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    <div className="aspect-square bg-gray-50/50 rounded-2xl p-6 flex items-center justify-center relative group mb-6">
                       <img
                         src={img}
                         alt={p.name}
                         className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
                       />
                     </div>
-                    <div className="p-6 flex flex-col flex-grow justify-between bg-white z-20">
-                      <h3 className="font-bold text-gray-800 leading-snug mb-4 line-clamp-2 text-lg">
+                    <div className="flex flex-col flex-grow justify-between bg-white z-20 text-center px-2">
+                      <h3 className="font-extrabold text-gray-800 leading-snug mb-2 line-clamp-2 text-lg">
                         {p.name}
                       </h3>
-                      {showPrice && (
-                        <div className="mt-auto pt-4 border-t border-gray-100 flex justify-between items-end">
-                          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                            A partir de
-                          </span>
-                          <span className="text-pink-600 font-extrabold text-2xl block">
-                            {formatMoney(p.price)}
-                          </span>
-                        </div>
-                      )}
+                      <p className="text-gray-400 font-mono text-xs uppercase tracking-widest mt-2">
+                        Ref: {p.id.split('-')[0]}
+                      </p>
                     </div>
                   </div>
                 )
               })}
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-12">
               {products.map((p) => {
                 const img =
                   p.product_skus?.[0]?.image_url ||
@@ -154,33 +172,35 @@ export default function CatalogPreview() {
                 return (
                   <div
                     key={p.id}
-                    className="flex gap-8 bg-white rounded-3xl border border-gray-100 p-6 shadow-xl shadow-gray-200/50 print:shadow-none print:border-gray-200 break-inside-avoid items-center"
+                    className="flex gap-8 bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-xl shadow-gray-200/50 print:shadow-none print:border-gray-200 break-inside-avoid items-center relative overflow-visible mt-6"
                   >
-                    <div className="w-40 h-40 flex-shrink-0 bg-gray-50/80 rounded-2xl overflow-hidden p-4 relative">
+                    {showPrice && (
+                      <div className="absolute top-1/2 -translate-y-1/2 -right-8 w-28 h-28 bg-white rounded-full flex items-center justify-center p-1 shadow-2xl z-30 transform -rotate-12">
+                        <div className="w-full h-full rounded-full border-2 border-dashed border-orange-400 flex flex-col items-center justify-center text-orange-600 bg-orange-50/50">
+                          <span className="text-[10px] uppercase font-bold tracking-tighter leading-none mb-1 text-orange-400">
+                            Por Apenas
+                          </span>
+                          <span className="font-black text-lg leading-none">
+                            {formatMoney(p.price)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    <div className="w-48 h-48 flex-shrink-0 bg-gray-50/80 rounded-3xl overflow-hidden p-6 relative">
                       <img
                         src={img}
                         alt={p.name}
                         className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm"
                       />
                     </div>
-                    <div className="flex-grow pl-2">
-                      <h3 className="font-bold text-3xl text-gray-800 mb-2 leading-tight">
+                    <div className="flex-grow pl-6 pr-16">
+                      <h3 className="font-black text-3xl text-gray-800 mb-4 leading-tight">
                         {p.name}
                       </h3>
-                      <p className="text-gray-400 font-mono text-sm uppercase tracking-widest bg-gray-50 inline-block px-3 py-1 rounded-md mt-2">
+                      <p className="text-gray-400 font-mono text-sm uppercase tracking-widest bg-gray-50 inline-block px-4 py-2 rounded-lg mt-2 border border-gray-100">
                         Ref: {p.id.split('-')[0]}
                       </p>
                     </div>
-                    {showPrice && (
-                      <div className="text-right flex-shrink-0 pr-6 border-l-2 border-gray-50 pl-10">
-                        <span className="text-gray-400 text-xs block mb-2 uppercase tracking-widest font-bold">
-                          Valor Unitário
-                        </span>
-                        <div className="text-pink-600 font-extrabold text-4xl">
-                          {formatMoney(p.price)}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )
               })}
@@ -188,17 +208,69 @@ export default function CatalogPreview() {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="mt-8 pb-16 px-12 text-center flex flex-col items-center gap-5">
-          <div className="w-32 h-1.5 bg-gradient-to-r from-pink-500 to-orange-400 rounded-full mb-4 opacity-50"></div>
-          {showWhatsApp && (
-            <div className="flex items-center gap-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100/50 text-green-700 px-8 py-4 rounded-2xl font-bold text-lg shadow-sm">
-              <span className="text-2xl">📱</span> WhatsApp: +55 (11) 99999-9999
+        {/* Unified Footer */}
+        <div className="mt-16 bg-gray-50 rounded-t-[4rem] pb-16 pt-20 px-16 text-center flex flex-col items-center gap-8 relative overflow-hidden shrink-0 print:break-inside-avoid">
+          <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-500"></div>
+
+          <div className="w-full max-w-3xl grid grid-cols-1 md:grid-cols-3 gap-8 text-left z-10">
+            <div>
+              <h4 className="font-bold text-gray-900 mb-4 uppercase tracking-widest text-xs">
+                Contato
+              </h4>
+              {showWhatsApp && (
+                <p className="text-gray-600 font-medium mb-3 flex items-center gap-3 text-sm">
+                  <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-sm shrink-0">
+                    📱
+                  </span>
+                  +55 (11) 99999-9999
+                </p>
+              )}
+              <p className="text-gray-600 font-medium flex items-center gap-3 text-sm">
+                <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm shrink-0">
+                  ✉️
+                </span>
+                contato@{organization?.slug || 'empresa'}.com.br
+              </p>
             </div>
-          )}
-          <div className="text-gray-400 text-sm font-semibold tracking-wide">
+            <div>
+              <h4 className="font-bold text-gray-900 mb-4 uppercase tracking-widest text-xs">
+                Redes Sociais
+              </h4>
+              <p className="text-gray-600 font-medium mb-3 flex items-center gap-3 text-sm">
+                <span className="w-8 h-8 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center text-sm shrink-0">
+                  📸
+                </span>
+                @{organization?.slug || 'instagram'}
+              </p>
+              <p className="text-gray-600 font-medium flex items-center gap-3 text-sm">
+                <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm shrink-0">
+                  📘
+                </span>
+                fb.com/{organization?.slug || 'facebook'}
+              </p>
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-900 mb-4 uppercase tracking-widest text-xs">
+                Endereço
+              </h4>
+              <p className="text-gray-600 font-medium leading-relaxed text-sm">
+                <span className="w-8 h-8 rounded-full bg-gray-200 text-gray-700 inline-flex items-center justify-center text-sm mr-3 float-left shrink-0">
+                  📍
+                </span>
+                Av. Paulista, 1000
+                <br />
+                Bela Vista, SP
+                <br />
+                CEP 01310-100
+              </p>
+            </div>
+          </div>
+
+          <div className="w-full h-px bg-gray-200 my-4 max-w-3xl"></div>
+
+          <div className="text-gray-400 text-xs font-semibold tracking-wide flex justify-between w-full max-w-3xl">
+            <p>Catálogo gerado em {new Date().toLocaleDateString('pt-BR')}</p>
             <p>
-              Catálogo gerado em {new Date().toLocaleDateString('pt-BR')} •{' '}
               {new Date().getFullYear()} © {organization?.name}
             </p>
           </div>
