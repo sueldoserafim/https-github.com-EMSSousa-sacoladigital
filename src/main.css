@@ -4,26 +4,48 @@
 
 @layer base {
   :root {
-    --background: 330 40% 98%;
-    --foreground: 330 10% 15%;
+    --background: 0 0% 100%;
+    --foreground: 338 10% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 330 10% 15%;
+    --card-foreground: 338 10% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 330 10% 15%;
-    --primary: 330 75% 45%;
+    --popover-foreground: 338 10% 10%;
+    --primary: 338 70% 45%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 330 20% 90%;
-    --secondary-foreground: 330 10% 15%;
-    --muted: 330 20% 92%;
-    --muted-foreground: 330 10% 40%;
-    --accent: 330 20% 90%;
-    --accent-foreground: 330 10% 15%;
+    --secondary: 338 20% 95%;
+    --secondary-foreground: 338 70% 30%;
+    --muted: 338 20% 95%;
+    --muted-foreground: 338 10% 45%;
+    --accent: 338 20% 95%;
+    --accent-foreground: 338 70% 30%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 330 20% 90%;
-    --input: 330 20% 90%;
-    --ring: 330 75% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 338 20% 90%;
+    --input: 338 20% 90%;
+    --ring: 338 70% 45%;
     --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 338 30% 5%;
+    --foreground: 0 0% 98%;
+    --card: 338 30% 5%;
+    --card-foreground: 0 0% 98%;
+    --popover: 338 30% 5%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 338 70% 60%;
+    --primary-foreground: 338 30% 5%;
+    --secondary: 338 30% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 338 30% 15%;
+    --muted-foreground: 338 10% 65%;
+    --accent: 338 30% 15%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 338 30% 15%;
+    --input: 338 30% 15%;
+    --ring: 338 70% 60%;
   }
 }
 
@@ -37,11 +59,17 @@
 }
 
 @layer utilities {
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  .animate-fade-in-up {
+    animation: fade-in-up 0.5s ease-out forwards;
   }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }

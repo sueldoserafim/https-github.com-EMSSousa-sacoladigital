@@ -1,105 +1,121 @@
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Package, Users, DollarSign, Loader2 } from 'lucide-react'
+import { Loader2, DollarSign, ShoppingCart, Package, Users, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
-} from '@/components/ui/chart'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts'
 import { supabase } from '@/lib/supabase/client'
-
-const fallbackData = [
-  { name: 'Jan', vendas: 0 },
-  { name: 'Fev', vendas: 0 },
-  { name: 'Mar', vendas: 0 },
-  { name: 'Abr', vendas: 0 },
-  { name: 'Mai', vendas: 0 },
-  { name: 'Jun', vendas: 0 },
-]
+import { format, subDays, startOfMonth, subMonths } from 'date-fns'
+import { MetricCard } from '@/components/dashboard/MetricCard'
+import { RecentOrdersTable } from '@/components/dashboard/RecentOrdersTable'
+import { LowStockAlerts } from '@/components/dashboard/LowStockAlerts'
 
 export default function Dashboard() {
-  const { organization, loading: authLoading } = useAuth()
+  const { organization, profile, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
-    totalSales: 0,
-    activeProducts: 0,
-    newCustomers: 0,
-    chartData: fallbackData,
+    revenueCurrent: 0,
+    revenueTrend: 0,
+    ordersCurrent: 0,
+    ordersTrend: 0,
+    productsCount: 0,
+    customersCount: 0,
   })
+  const [chartData, setChartData] = useState<any[]>([])
+  const [lowStock, setLowStock] = useState<any[]>([])
+  const [recentOrders, setRecentOrders] = useState<any[]>([])
 
   useEffect(() => {
-    if (authLoading) return
-    if (!organization) {
-      setLoading(false)
+    if (authLoading || !organization) {
+      if (!authLoading) setLoading(false)
       return
     }
 
     const fetchDashboardData = async () => {
       try {
-        const [{ count: productsCount }, { count: customersCount }, { data: ordersData }] =
-          await Promise.all([
-            supabase
-              .from('products')
-              .select('*', { count: 'exact', head: true })
-              .eq('organization_id', organization.id),
-            supabase
-              .from('customers')
-              .select('*', { count: 'exact', head: true })
-              .eq('organization_id', organization.id),
-            supabase
-              .from('orders')
-              .select('total, created_at, status')
-              .eq('organization_id', organization.id),
-          ])
+        const [
+          { count: productsCount },
+          { count: customersCount },
+          { data: ordersData },
+          { data: lowStockData },
+        ] = await Promise.all([
+          supabase
+            .from('products')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', organization.id),
+          supabase
+            .from('customers')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', organization.id),
+          supabase
+            .from('orders')
+            .select('id, order_number, created_at, total, status, customers(name)')
+            .eq('organization_id', organization.id)
+            .order('created_at', { ascending: false })
+            .limit(500),
+          supabase
+            .from('products')
+            .select('id, name, stock')
+            .eq('organization_id', organization.id)
+            .lt('stock', 10)
+            .order('stock', { ascending: true })
+            .limit(5),
+        ])
 
-        let totalSales = 0
-        const monthlyData: Record<string, number> = {}
-        const months = [
-          'Jan',
-          'Fev',
-          'Mar',
-          'Abr',
-          'Mai',
-          'Jun',
-          'Jul',
-          'Ago',
-          'Set',
-          'Out',
-          'Nov',
-          'Dez',
-        ]
+        const now = new Date()
+        const startOfThisMonth = startOfMonth(now)
+        const startOfPrevMonth = startOfMonth(subMonths(now, 1))
+
+        let revThisMonth = 0,
+          revPrevMonth = 0
+        let ordersThisMonth = 0,
+          ordersPrevMonth = 0
+
+        const last30Days = Array.from({ length: 30 }).map((_, i) => {
+          const d = subDays(now, 29 - i)
+          return { date: format(d, 'yyyy-MM-dd'), display: format(d, 'dd/MM'), vendas: 0 }
+        })
 
         if (ordersData) {
-          ordersData.forEach((order) => {
-            if (order.status !== 'Cancelado') {
-              totalSales += Number(order.total) || 0
+          ordersData.forEach((o) => {
+            const d = new Date(o.created_at)
+            const isThisMonth = d >= startOfThisMonth
+            const isPrevMonth = d >= startOfPrevMonth && d < startOfThisMonth
+
+            if (o.status !== 'Cancelado') {
+              if (isThisMonth) revThisMonth += Number(o.total) || 0
+              if (isPrevMonth) revPrevMonth += Number(o.total) || 0
+
+              const dateStr = format(d, 'yyyy-MM-dd')
+              const dayData = last30Days.find((x) => x.date === dateStr)
+              if (dayData) dayData.vendas += Number(o.total) || 0
             }
-            const date = new Date(order.created_at)
-            const monthName = months[date.getMonth()]
-            monthlyData[monthName] = (monthlyData[monthName] || 0) + (Number(order.total) || 0)
+            if (isThisMonth) ordersThisMonth++
+            if (isPrevMonth) ordersPrevMonth++
           })
         }
 
-        const chartData = months
-          .map((month) => ({
-            name: month,
-            vendas: monthlyData[month] || 0,
-          }))
-          .slice(0, 6)
-
-        const finalChartData = chartData.some((d) => d.vendas > 0) ? chartData : fallbackData
-
         setStats({
-          totalSales,
-          activeProducts: productsCount || 0,
-          newCustomers: customersCount || 0,
-          chartData: finalChartData,
+          revenueCurrent: revThisMonth,
+          revenueTrend: revPrevMonth
+            ? ((revThisMonth - revPrevMonth) / revPrevMonth) * 100
+            : revThisMonth > 0
+              ? 100
+              : 0,
+          ordersCurrent: ordersThisMonth,
+          ordersTrend: ordersPrevMonth
+            ? ((ordersThisMonth - ordersPrevMonth) / ordersPrevMonth) * 100
+            : ordersThisMonth > 0
+              ? 100
+              : 0,
+          productsCount: productsCount || 0,
+          customersCount: customersCount || 0,
         })
+
+        setChartData(last30Days)
+        setRecentOrders(ordersData?.slice(0, 6) || [])
+        setLowStock(lowStockData || [])
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
       } finally {
@@ -120,96 +136,136 @@ export default function Dashboard() {
 
   if (!organization) {
     return (
-      <div className="p-8 max-w-6xl mx-auto space-y-8 animate-fade-in-up">
+      <div className="p-8 max-w-7xl mx-auto space-y-8 animate-fade-in-up">
         <h1 className="text-3xl font-bold tracking-tight">Painel</h1>
         <p className="text-muted-foreground mt-2">
-          Nenhuma organização encontrada. Por favor, conclua a configuração da sua conta.
+          Nenhuma organização encontrada. Conclua a configuração da sua conta.
         </p>
       </div>
     )
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8 animate-fade-in-up">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Painel</h1>
-          <p className="text-muted-foreground mt-2">
-            Bem-vindo(a) de volta a {organization.name}. Aqui está o resumo da sua loja.
-          </p>
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in-up">
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Olá, {profile?.full_name?.split(' ')[0] || 'Administrador'}!
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Bem-vindo(a) de volta a{' '}
+              <span className="font-semibold text-foreground">{organization.name}</span>. Aqui está
+              o resumo da sua loja.
+            </p>
+          </div>
         </div>
-        <Button asChild></Button>
+
+        <div className="bg-gradient-to-r from-primary/15 via-primary/5 to-background border border-primary/20 rounded-xl p-5 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden shadow-sm">
+          <div className="absolute top-0 left-0 w-1.5 h-full bg-primary" />
+          <div>
+            <h3 className="font-semibold text-primary-foreground bg-primary inline-flex px-3 py-1 rounded-full text-xs mb-2">
+              Período de Teste
+            </h3>
+            <p className="text-sm text-foreground/80 font-medium">
+              Você está no período de teste. Aproveite todos os recursos premium por mais 14 dias.
+            </p>
+          </div>
+          <Button className="shrink-0 rounded-full shadow-md hover:shadow-lg transition-all">
+            Assinar Agora <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="h-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Vendas Totais</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                stats.totalSales,
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">Vendas confirmadas e pendentes</p>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Produtos Ativos</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.activeProducts}</div>
-            <p className="text-xs text-muted-foreground">Produtos cadastrados na vitrine</p>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clientes</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.newCustomers}</div>
-            <p className="text-xs text-muted-foreground">Clientes únicos registrados</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:gap-6 grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Faturamento"
+          value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+            stats.revenueCurrent,
+          )}
+          trend={stats.revenueTrend}
+          subtitle="vs. mês passado"
+          icon={<DollarSign className="w-5 h-5" />}
+        />
+        <MetricCard
+          title="Pedidos"
+          value={stats.ordersCurrent}
+          trend={stats.ordersTrend}
+          subtitle="vs. mês passado"
+          icon={<ShoppingCart className="w-5 h-5" />}
+        />
+        <MetricCard
+          title="Produtos"
+          value={stats.productsCount}
+          subtitle="cadastrados"
+          icon={<Package className="w-5 h-5" />}
+        />
+        <MetricCard
+          title="Clientes"
+          value={stats.customersCount}
+          subtitle="registrados"
+          icon={<Users className="w-5 h-5" />}
+        />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Vendas por Período</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer
-            config={{
-              vendas: {
-                label: 'Vendas',
-                color: 'hsl(var(--primary))',
-              },
-            }}
-            className="h-[300px] w-full"
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
-                <XAxis dataKey="name" className="text-xs" tickLine={false} axisLine={false} />
-                <YAxis
-                  className="text-xs"
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `R$ ${value}`}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="vendas" fill="var(--color-vendas)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-7">
+        <Card className="md:col-span-2 lg:col-span-5 border-border/50 shadow-sm flex flex-col">
+          <CardHeader>
+            <CardTitle>Desempenho de Vendas</CardTitle>
+            <CardDescription>Faturamento dos últimos 30 dias</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 min-h-[300px]">
+            <ChartContainer
+              config={{ vendas: { label: 'Faturamento', color: 'hsl(var(--primary))' } }}
+              className="h-[300px] w-full"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorVendas" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-vendas)" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="var(--color-vendas)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    className="stroke-muted/50"
+                  />
+                  <XAxis
+                    dataKey="display"
+                    className="text-xs"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={10}
+                    minTickGap={30}
+                  />
+                  <YAxis
+                    className="text-xs"
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `R$ ${value}`}
+                    width={60}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Area
+                    type="monotone"
+                    dataKey="vendas"
+                    stroke="var(--color-vendas)"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#colorVendas)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        <LowStockAlerts products={lowStock} />
+      </div>
+
+      <RecentOrdersTable orders={recentOrders} />
     </div>
   )
 }
