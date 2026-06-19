@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Outlet, useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
-import { ShoppingCart, Store, Plus, Minus, Trash2, Search, MessageCircle } from 'lucide-react'
+import { Store, Plus, Minus, Trash2, Search, MessageCircle, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
@@ -97,7 +97,7 @@ export default function StorefrontLayout() {
         toast({ title: 'Atualizado', description: 'Quantidade adicionada no carrinho.' })
         return prev.map((i) => (i.sku_id === item.sku_id ? { ...i, quantity: i.quantity + 1 } : i))
       }
-      toast({ title: 'Adicionado', description: 'Produto adicionado ao carrinho.' })
+      toast({ title: 'Adicionado', description: 'Produto adicionado à sacola.' })
       return [...prev, item]
     })
     setCartOpen(true)
@@ -170,8 +170,17 @@ export default function StorefrontLayout() {
       value={{ org, cart, addToCart, searchTerm, setSearchTerm, activeCategory, setActiveCategory }}
     >
       <div className="min-h-screen bg-slate-50 pb-20 md:pb-0">
-        <header className="bg-pink-600 text-white sticky top-0 z-50 shadow-md">
-          <div className="max-w-6xl mx-auto px-4 pt-4 pb-3 flex flex-col gap-4">
+        <header
+          className={cn(
+            'text-white sticky top-0 z-50 shadow-md bg-cover bg-center transition-all',
+            !org.banner_url && 'bg-[#D982B5]',
+          )}
+          style={org.banner_url ? { backgroundImage: `url(${org.banner_url})` } : undefined}
+        >
+          {org.banner_url && (
+            <div className="absolute inset-0 bg-black/40 z-0 backdrop-blur-[2px]" />
+          )}
+          <div className="max-w-6xl mx-auto px-4 pt-5 pb-4 flex flex-col gap-5 relative z-10">
             <div className="flex items-center justify-between">
               <Link
                 to={`/vitrine/${slug}`}
@@ -181,13 +190,13 @@ export default function StorefrontLayout() {
                   <img
                     src={org.logo_url}
                     alt={org.name}
-                    className="h-10 w-auto rounded-lg object-contain bg-white/10"
+                    className="h-12 w-auto rounded-xl object-contain bg-white/10 p-1"
                   />
                 ) : (
-                  <>
+                  <div className="flex items-center gap-2">
                     <Store className="w-8 h-8" />
                     <span className="font-bold text-xl md:text-2xl tracking-tight">{org.name}</span>
-                  </>
+                  </div>
                 )}
               </Link>
 
@@ -196,9 +205,9 @@ export default function StorefrontLayout() {
                   href="https://wa.me/5511999999999"
                   target="_blank"
                   rel="noreferrer"
-                  className="hidden sm:flex items-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white px-4 py-2 rounded-full text-sm font-semibold transition-colors"
+                  className="hidden sm:flex items-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white px-5 py-2.5 rounded-full text-sm font-bold transition-colors shadow-sm"
                 >
-                  <MessageCircle className="w-4 h-4" />
+                  <MessageCircle className="w-5 h-5" />
                   Falar no WhatsApp
                 </a>
 
@@ -210,10 +219,10 @@ export default function StorefrontLayout() {
                   }}
                 >
                   <SheetTrigger asChild>
-                    <button className="relative p-2 bg-pink-700 hover:bg-pink-800 rounded-full transition-colors flex items-center justify-center">
-                      <ShoppingCart className="w-5 h-5" />
+                    <button className="relative p-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full transition-colors flex items-center justify-center">
+                      <ShoppingBag className="w-5 h-5" />
                       {cart.length > 0 && (
-                        <Badge className="absolute -top-1 -right-1 px-1.5 min-w-[20px] h-5 flex items-center justify-center bg-white text-pink-600 border-none font-bold">
+                        <Badge className="absolute -top-1.5 -right-1.5 px-1.5 min-w-[22px] h-5 flex items-center justify-center bg-white text-[#D982B5] border-none font-bold shadow-sm">
                           {cart.length}
                         </Badge>
                       )}
@@ -227,7 +236,7 @@ export default function StorefrontLayout() {
                     {!isCheckout ? (
                       cart.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground space-y-4">
-                          <ShoppingCart className="w-16 h-16 text-slate-200" />
+                          <ShoppingBag className="w-16 h-16 text-slate-200" />
                           <p className="text-lg">Sua sacola está vazia.</p>
                         </div>
                       ) : (
@@ -259,7 +268,7 @@ export default function StorefrontLayout() {
                                         {item.attributes_desc}
                                       </p>
                                     )}
-                                    <p className="font-bold text-pink-600 mt-1">
+                                    <p className="font-bold text-[#D982B5] mt-1">
                                       {new Intl.NumberFormat('pt-BR', {
                                         style: 'currency',
                                         currency: 'BRL',
@@ -270,7 +279,7 @@ export default function StorefrontLayout() {
                                     <Button
                                       size="icon"
                                       variant="ghost"
-                                      className="h-7 w-7 text-slate-600 hover:bg-white hover:text-pink-600 rounded-md"
+                                      className="h-7 w-7 text-slate-600 hover:bg-white hover:text-[#D982B5] rounded-md"
                                       onClick={() => updateQuantity(item.sku_id, -1)}
                                     >
                                       <Minus className="h-3 w-3" />
@@ -281,7 +290,7 @@ export default function StorefrontLayout() {
                                     <Button
                                       size="icon"
                                       variant="ghost"
-                                      className="h-7 w-7 text-slate-600 hover:bg-white hover:text-pink-600 rounded-md"
+                                      className="h-7 w-7 text-slate-600 hover:bg-white hover:text-[#D982B5] rounded-md"
                                       onClick={() => updateQuantity(item.sku_id, 1)}
                                     >
                                       <Plus className="h-3 w-3" />
@@ -308,7 +317,7 @@ export default function StorefrontLayout() {
                               </span>
                             </div>
                             <Button
-                              className="w-full h-14 text-lg rounded-2xl bg-pink-600 hover:bg-pink-700"
+                              className="w-full h-14 text-lg rounded-2xl bg-[#D982B5] hover:bg-[#c272a1] shadow-lg shadow-[#D982B5]/20"
                               onClick={() => setIsCheckout(true)}
                             >
                               Finalizar Compra
@@ -376,7 +385,7 @@ export default function StorefrontLayout() {
                           </div>
                           <Button
                             type="submit"
-                            className="w-full h-14 text-lg rounded-2xl bg-pink-600 hover:bg-pink-700"
+                            className="w-full h-14 text-lg rounded-2xl bg-[#D982B5] hover:bg-[#c272a1] shadow-lg shadow-[#D982B5]/20"
                             disabled={checkoutLoading}
                           >
                             {checkoutLoading ? 'Processando...' : 'Confirmar Pedido'}
@@ -399,25 +408,25 @@ export default function StorefrontLayout() {
             </div>
 
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-pink-300" />
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80" />
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="O que você está procurando?"
-                className="w-full bg-pink-700/60 border-transparent text-white placeholder:text-pink-300 focus-visible:ring-0 focus-visible:bg-pink-700 rounded-full pl-12 h-12 shadow-inner"
+                className="w-full bg-white/20 backdrop-blur-md border-white/30 text-white placeholder:text-white/80 focus-visible:ring-0 focus-visible:bg-white/30 rounded-full pl-14 h-14 shadow-sm text-base"
               />
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
               {['Todos', 'Lançamentos', 'Promoções', 'Mais Vendidos', 'Acessórios'].map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
                   className={cn(
-                    'whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all border',
+                    'whitespace-nowrap px-6 py-2.5 rounded-full text-sm font-bold transition-all border backdrop-blur-sm',
                     activeCategory === cat
-                      ? 'bg-white text-pink-600 border-white shadow-sm'
-                      : 'bg-transparent text-pink-50 border-pink-400 hover:bg-pink-500',
+                      ? 'bg-white text-[#D982B5] border-white shadow-md'
+                      : 'bg-white/10 text-white border-white/20 hover:bg-white/20',
                   )}
                 >
                   {cat}
@@ -427,7 +436,7 @@ export default function StorefrontLayout() {
           </div>
         </header>
 
-        <main className="max-w-6xl mx-auto px-4 pt-6 pb-12 animate-fade-in">
+        <main className="max-w-6xl mx-auto px-4 pt-8 pb-12 animate-fade-in">
           <Outlet />
         </main>
       </div>

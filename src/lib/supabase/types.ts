@@ -250,20 +250,26 @@ export type Database = {
       }
       organizations: {
         Row: {
+          banner_url: string | null
           created_at: string
           id: string
+          logo_url: string | null
           name: string
           slug: string | null
         }
         Insert: {
+          banner_url?: string | null
           created_at?: string
           id?: string
+          logo_url?: string | null
           name: string
           slug?: string | null
         }
         Update: {
+          banner_url?: string | null
           created_at?: string
           id?: string
+          logo_url?: string | null
           name?: string
           slug?: string | null
         }
