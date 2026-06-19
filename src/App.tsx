@@ -19,6 +19,7 @@ import Team from './pages/Team'
 import Customers from './pages/Customers'
 import Calculator from './pages/Calculator'
 import Catalog from './pages/Catalog'
+import CatalogPreview from './pages/CatalogPreview'
 import StorefrontLayout from './pages/storefront/StorefrontLayout'
 import StorefrontIndex from './pages/storefront/StorefrontIndex'
 import StorefrontProduct from './pages/storefront/StorefrontProduct'
@@ -57,6 +58,9 @@ const App = () => (
               <Route path="/calculator" element={<Calculator />} />
               <Route path="/catalog" element={<Catalog />} />
             </Route>
+
+            {/* Print Preview Route - No Sidebar Layout */}
+            <Route path="/catalog/preview" element={<CatalogPreview />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
