@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
+import { Loader2, X, ImageIcon } from 'lucide-react'
 
 export default function Settings() {
   const { user, profile, organization } = useAuth()
@@ -26,6 +26,51 @@ export default function Settings() {
   const [fullName, setFullName] = useState('')
   const [loadingOrg, setLoadingOrg] = useState(false)
   const [loadingProfile, setLoadingProfile] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
+
+  const handleFileUpload = async (
+    file: File,
+    folder: 'logos' | 'banners',
+    setLoading: (loading: boolean) => void,
+    setUrl: (url: string) => void,
+  ) => {
+    if (!file) return
+
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/jpg'].includes(file.type)) {
+      toast({
+        title: 'Erro',
+        description: 'Formato de imagem inválido. Use JPG, PNG ou WEBP.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${organization?.id || 'org'}-${Date.now()}.${fileExt}`
+      const filePath = `${folder}/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('organization-assets')
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      const { data } = supabase.storage.from('organization-assets').getPublicUrl(filePath)
+
+      setUrl(data.publicUrl)
+      toast({
+        title: 'Upload concluído',
+        description: 'Imagem enviada. Salve as alterações da loja.',
+      })
+    } catch (error: any) {
+      toast({ title: 'Erro no upload', description: error.message, variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (organization) {
@@ -132,22 +177,84 @@ export default function Settings() {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="logoUrl">Logo da Loja (URL)</Label>
-                <Input
-                  id="logoUrl"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="https://exemplo.com/logo.png"
-                />
+                <Label>Logo da Loja</Label>
+                <div className="flex items-center gap-4">
+                  {logoUrl ? (
+                    <div className="relative h-20 w-20 rounded-xl border overflow-hidden bg-slate-50 shrink-0">
+                      <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                      <button
+                        type="button"
+                        onClick={() => setLogoUrl('')}
+                        className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="h-20 w-20 rounded-xl border border-dashed flex items-center justify-center bg-slate-50 text-slate-400 shrink-0">
+                      <ImageIcon className="w-6 h-6" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <Input
+                      key={`logo-input-${logoUrl}`}
+                      type="file"
+                      accept="image/png, image/jpeg, image/jpg, image/webp"
+                      className="cursor-pointer"
+                      disabled={uploadingLogo}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleFileUpload(file, 'logos', setUploadingLogo, setLogoUrl)
+                      }}
+                    />
+                    {uploadingLogo && (
+                      <p className="text-xs text-muted-foreground mt-2 flex items-center">
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Fazendo upload...
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="bannerUrl">Banner da Loja (URL)</Label>
-                <Input
-                  id="bannerUrl"
-                  value={bannerUrl}
-                  onChange={(e) => setBannerUrl(e.target.value)}
-                  placeholder="https://exemplo.com/banner.png"
-                />
+                <Label>Banner da Loja</Label>
+                <div className="space-y-4">
+                  {bannerUrl ? (
+                    <div className="relative h-32 w-full rounded-xl border overflow-hidden bg-slate-50">
+                      <img src={bannerUrl} alt="Banner" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setBannerUrl('')}
+                        className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="h-32 w-full rounded-xl border border-dashed flex flex-col items-center justify-center bg-slate-50 text-slate-400">
+                      <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
+                      <span className="text-xs opacity-50">Sem banner</span>
+                    </div>
+                  )}
+                  <div>
+                    <Input
+                      key={`banner-input-${bannerUrl}`}
+                      type="file"
+                      accept="image/png, image/jpeg, image/jpg, image/webp"
+                      className="cursor-pointer"
+                      disabled={uploadingBanner}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file)
+                          handleFileUpload(file, 'banners', setUploadingBanner, setBannerUrl)
+                      }}
+                    />
+                    {uploadingBanner && (
+                      <p className="text-xs text-muted-foreground mt-2 flex items-center">
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Fazendo upload...
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </CardContent>
             <CardFooter>
