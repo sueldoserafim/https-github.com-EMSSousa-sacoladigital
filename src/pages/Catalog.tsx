@@ -8,7 +8,17 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { FileDown, Settings2, List, LayoutGrid, Clock, Loader2, Search } from 'lucide-react'
+import {
+  FileDown,
+  Settings2,
+  List,
+  LayoutGrid,
+  Clock,
+  Loader2,
+  Search,
+  Link as LinkIcon,
+  ExternalLink,
+} from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 
@@ -81,13 +91,25 @@ export default function Catalog() {
     }
 
     try {
-      await supabase.from('catalog_histories').insert({
-        organization_id: organization?.id,
-        name: `Catálogo ${new Date().toLocaleDateString('pt-BR')}`,
-        settings,
-      })
+      const { data: historyData, error: historyError } = await supabase
+        .from('catalog_histories')
+        .insert({
+          organization_id: organization?.id,
+          name: `Catálogo ${new Date().toLocaleDateString('pt-BR')}`,
+          settings,
+        })
+        .select('id')
+        .single()
 
-      localStorage.setItem('catalog_print_data', JSON.stringify(settings))
+      if (historyError) throw historyError
+
+      localStorage.setItem(
+        'catalog_print_data',
+        JSON.stringify({
+          ...settings,
+          historyId: historyData.id,
+        }),
+      )
       window.open('/catalog/preview', '_blank')
       fetchHistory()
       toast.success('Catálogo gerado com sucesso!')
@@ -100,8 +122,26 @@ export default function Catalog() {
   }
 
   const handleHistoryClick = (item: any) => {
-    localStorage.setItem('catalog_print_data', JSON.stringify(item.settings))
+    localStorage.setItem(
+      'catalog_print_data',
+      JSON.stringify({
+        ...item.settings,
+        historyId: item.id,
+        pdfUrl: item.pdf_url,
+      }),
+    )
     window.open('/catalog/preview', '_blank')
+  }
+
+  const copyPdfLink = (e: React.MouseEvent, url: string) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(url)
+    toast.success('Link copiado para a área de transferência')
+  }
+
+  const openPdf = (e: React.MouseEvent, url: string) => {
+    e.stopPropagation()
+    window.open(url, '_blank')
   }
 
   const toggleProduct = (id: string, skus: any[] = []) => {
@@ -389,13 +429,38 @@ export default function Catalog() {
                         {new Date(item.created_at).toLocaleString('pt-BR')}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground group-hover:text-primary group-hover:bg-primary/10"
-                    >
-                      <FileDown className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {item.pdf_url && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                            onClick={(e) => copyPdfLink(e, item.pdf_url)}
+                            title="Copiar link do PDF"
+                          >
+                            <LinkIcon className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-50"
+                            onClick={(e) => openPdf(e, item.pdf_url)}
+                            title="Abrir PDF"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground group-hover:text-primary group-hover:bg-primary/10"
+                        title="Ver layout HTML"
+                      >
+                        <FileDown className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {history.length === 0 && (

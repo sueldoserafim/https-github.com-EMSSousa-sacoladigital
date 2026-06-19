@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
-import { Printer, AlertCircle } from 'lucide-react'
+import { Printer, AlertCircle, CloudUpload, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function CatalogPreview() {
   const { organization } = useAuth()
   const [products, setProducts] = useState<any[]>([])
   const [settings, setSettings] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
 
   useEffect(() => {
     const data = localStorage.getItem('catalog_print_data')
@@ -70,23 +72,106 @@ export default function CatalogPreview() {
     )
   }
 
-  const { format, showPrice, showLogo, showWhatsApp } = settings
+  const { format, showPrice, showLogo, showWhatsApp, historyId } = settings
+
+  const handleSaveToCloud = async () => {
+    if (!historyId) {
+      toast.error('ID do catálogo não encontrado. Gere um novo catálogo.')
+      return
+    }
+
+    setGeneratingPdf(true)
+    const toastId = toast.loading('Gerando arquivo PDF...')
+
+    try {
+      const element = document.getElementById('catalog-content')
+      if (!element) throw new Error('Elemento do catálogo não encontrado')
+
+      // @ts-expect-error
+      const pdfBlob = await window
+        .html2pdf()
+        .from(element)
+        .set({
+          margin: 0,
+          filename: `catalog_${historyId}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        })
+        .output('blob')
+
+      toast.loading('Fazendo upload para a nuvem...', { id: toastId })
+
+      const filename = `${organization?.id}/${historyId}.pdf`
+      const { error: uploadError } = await supabase.storage
+        .from('catalogs')
+        .upload(filename, pdfBlob, { upsert: true, contentType: 'application/pdf' })
+
+      if (uploadError) throw uploadError
+
+      const { data: publicUrlData } = supabase.storage.from('catalogs').getPublicUrl(filename)
+
+      await supabase
+        .from('catalog_histories')
+        .update({ pdf_url: publicUrlData.publicUrl })
+        .eq('id', historyId)
+
+      toast.success('PDF gerado e salvo com sucesso!', { id: toastId })
+
+      const newSettings = { ...settings, pdfUrl: publicUrlData.publicUrl }
+      setSettings(newSettings)
+      localStorage.setItem('catalog_print_data', JSON.stringify(newSettings))
+    } catch (err) {
+      console.error('Error generating PDF:', err)
+      toast.error('Erro ao gerar PDF', { id: toastId })
+    } finally {
+      setGeneratingPdf(false)
+    }
+  }
+
   const formatMoney = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0)
 
   return (
     <div className="min-h-screen bg-gray-100 print:bg-white font-sans text-gray-900 print:pb-0 flex flex-col items-center">
-      <div className="fixed bottom-6 right-6 print:hidden z-50">
+      <div className="fixed bottom-6 right-6 print:hidden z-50 flex flex-col gap-3">
+        {settings.pdfUrl ? (
+          <Button
+            onClick={() => {
+              navigator.clipboard.writeText(settings.pdfUrl)
+              toast.success('Link copiado!')
+            }}
+            className="gap-2 shadow-2xl rounded-full px-8 h-12 text-sm font-bold bg-green-600 hover:bg-green-700 text-white transition-transform hover:scale-105"
+          >
+            Copiar Link do PDF
+          </Button>
+        ) : (
+          <Button
+            onClick={handleSaveToCloud}
+            disabled={generatingPdf}
+            className="gap-2 shadow-2xl rounded-full px-8 h-12 text-sm font-bold bg-pink-600 hover:bg-pink-700 text-white transition-transform hover:scale-105"
+          >
+            {generatingPdf ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <CloudUpload className="w-4 h-4" />
+            )}
+            {generatingPdf ? 'Processando...' : 'Salvar na Nuvem'}
+          </Button>
+        )}
         <Button
           onClick={() => window.print()}
           className="gap-2 shadow-2xl rounded-full px-8 h-14 text-base font-bold bg-gray-900 hover:bg-gray-800 text-white transition-transform hover:scale-105"
         >
           <Printer className="w-5 h-5" />
-          Imprimir PDF
+          Imprimir / PDF Local
         </Button>
       </div>
 
-      <div className="w-full max-w-[210mm] bg-white min-h-[297mm] shadow-2xl print:shadow-none print:w-full print:max-w-none my-8 print:my-0 relative flex flex-col">
+      <div
+        id="catalog-content"
+        className="w-full max-w-[210mm] bg-white min-h-[297mm] shadow-2xl print:shadow-none print:w-full print:max-w-none my-8 print:my-0 relative flex flex-col"
+      >
         {/* Header with Fluid Curves & Gradients */}
         <div className="relative overflow-hidden bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500 text-white pb-40 pt-20 px-16 rounded-b-[5rem] print:rounded-b-[5rem] shrink-0">
           {/* Decorative abstract shapes */}

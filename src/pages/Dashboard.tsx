@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Loader2, DollarSign, ShoppingCart, Package, Users, ArrowRight } from 'lucide-react'
+import {
+  Loader2,
+  DollarSign,
+  ShoppingCart,
+  Package,
+  Users,
+  ArrowRight,
+  Download,
+  FileDown,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,6 +35,7 @@ export default function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([])
   const [lowStock, setLowStock] = useState<any[]>([])
   const [recentOrders, setRecentOrders] = useState<any[]>([])
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     if (authLoading || !organization) {
@@ -146,7 +157,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in-up">
+    <div
+      id="dashboard-content"
+      className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in-up bg-background"
+    >
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -159,6 +173,53 @@ export default function Dashboard() {
               o resumo da sua loja.
             </p>
           </div>
+
+          <Button
+            className="gap-2 shrink-0 shadow-md hover:shadow-lg transition-all bg-pink-600 hover:bg-pink-700 text-white rounded-full px-6"
+            disabled={exporting}
+            onClick={async () => {
+              setExporting(true)
+              const toastId = toast.loading('Gerando relatório...')
+              try {
+                const element = document.getElementById('dashboard-content')
+                if (!element) throw new Error('Dashboard element not found')
+
+                // @ts-expect-error
+                const pdfBlob = await window
+                  .html2pdf()
+                  .from(element)
+                  .set({
+                    margin: 10,
+                    filename: `relatorio_${new Date().getTime()}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, logging: false },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+                  })
+                  .output('blob')
+
+                const url = URL.createObjectURL(pdfBlob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `relatorio_${new Date().getTime()}.pdf`
+                a.click()
+                URL.revokeObjectURL(url)
+
+                toast.success('Relatório gerado com sucesso!', { id: toastId })
+              } catch (e) {
+                console.error(e)
+                toast.error('Erro ao gerar relatório', { id: toastId })
+              } finally {
+                setExporting(false)
+              }
+            }}
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <FileDown className="w-4 h-4" />
+            )}
+            Gerar PDF
+          </Button>
         </div>
 
         <div className="bg-gradient-to-r from-primary/15 via-primary/5 to-background border border-primary/20 rounded-xl p-5 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden shadow-sm">
