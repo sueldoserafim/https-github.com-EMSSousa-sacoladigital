@@ -76,7 +76,7 @@ export default function StorefrontLayout() {
         setOrg(null)
       } else {
         setOrg(data)
-        
+
         const { count } = await supabase
           .from('products')
           .select('*', { count: 'exact', head: true })
@@ -179,24 +179,33 @@ export default function StorefrontLayout() {
       <div className="min-h-screen bg-slate-50 pb-20 md:pb-0">
         <header className="bg-white border-b border-slate-100 shadow-sm relative z-10">
           {org.banner_url ? (
-            <div className="h-32 sm:h-48 w-full bg-cover bg-center" style={{ backgroundImage: `url(${org.banner_url})` }} />
+            <div
+              className="h-32 sm:h-48 w-full bg-cover bg-center"
+              style={{ backgroundImage: `url(${org.banner_url})` }}
+            />
           ) : (
             <div className="h-24 sm:h-32 w-full bg-gradient-to-r from-[#D982B5] to-[#f49acb]" />
           )}
-          
+
           <div className="max-w-4xl mx-auto px-4 pb-6 -mt-12 sm:-mt-16 relative z-10 flex flex-col items-center text-center">
-            <Link to={`/vitrine/${slug}`} className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white overflow-hidden bg-white shadow-md flex items-center justify-center mb-4 transition-transform hover:scale-105">
+            <Link
+              to={`/vitrine/${slug}`}
+              className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white overflow-hidden bg-white shadow-md flex items-center justify-center mb-4 transition-transform hover:scale-105"
+            >
               {org.logo_url ? (
-                 <img src={org.logo_url} alt={org.name} className="w-full h-full object-cover" />
+                <img src={org.logo_url} alt={org.name} className="w-full h-full object-cover" />
               ) : (
-                 <Store className="w-10 h-10 text-slate-300" />
+                <Store className="w-10 h-10 text-slate-300" />
               )}
             </Link>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{org.name}</h1>
-            
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              {org.name}
+            </h1>
+
             <p className="mt-2 text-sm sm:text-base text-slate-600 max-w-md mx-auto leading-relaxed">
-              {org.description || 'Bem-vindo à nossa loja! Encontre os melhores produtos com a qualidade que você merece.'}
+              {org.description ||
+                'Bem-vindo à nossa loja! Encontre os melhores produtos com a qualidade que você merece.'}
             </p>
 
             <div className="flex items-center justify-center gap-4 mt-4 text-sm font-medium text-slate-600">
@@ -211,9 +220,9 @@ export default function StorefrontLayout() {
               </div>
             </div>
 
-            <a 
-              href={`https://wa.me/${(org.whatsapp_number || '5511999999999').replace(/\D/g, '')}`} 
-              target="_blank" 
+            <a
+              href={`https://wa.me/${(org.whatsapp_number || '5511999999999').replace(/\D/g, '')}`}
+              target="_blank"
               rel="noreferrer"
               className="mt-5 inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white px-6 py-3 rounded-full text-sm font-bold transition-all shadow-sm hover:shadow-md active:scale-95"
             >
@@ -223,182 +232,115 @@ export default function StorefrontLayout() {
           </div>
 
           <div className="max-w-4xl mx-auto px-4 pb-4">
-             <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                   <Input 
-                     value={searchTerm}
-                     onChange={(e) => setSearchTerm(e.target.value)}
-                     placeholder="Buscar na loja..."
-                     className="w-full pl-12 h-12 rounded-full border-slate-200 bg-slate-50 focus-visible:ring-[#D982B5] shadow-sm text-base"
-                   />
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar na loja..."
+                  className="w-full pl-12 h-12 rounded-full border-slate-200 bg-slate-50 focus-visible:ring-[#D982B5] shadow-sm text-base"
+                />
+              </div>
 
-                <Sheet
-                  open={cartOpen}
-                  onOpenChange={(open) => {
-                    setCartOpen(open)
-                    if (!open) setIsCheckout(false)
-                  }}
-                >
-                  <SheetTrigger asChild>
-                    <button className="relative h-12 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-full transition-colors flex items-center justify-center shadow-sm">
-                      <ShoppingBag className="w-5 h-5" />
-                      {cart.length > 0 && (
-                        <Badge className="absolute -top-1.5 -right-1.5 px-1.5 min-w-[22px] h-5 flex items-center justify-center bg-[#D982B5] text-white border-none font-bold shadow-sm">
-                          {cart.length}
-                        </Badge>
-                      )}
-                    </button>
-                  </SheetTrigger>
-                  <SheetContent className="w-full sm:max-w-md flex flex-col">
-                    <SheetHeader>
-                      <SheetTitle>{isCheckout ? 'Finalizar Pedido' : 'Sua Sacola'}</SheetTitle>
-                    </SheetHeader>
+              <Sheet
+                open={cartOpen}
+                onOpenChange={(open) => {
+                  setCartOpen(open)
+                  if (!open) setIsCheckout(false)
+                }}
+              >
+                <SheetTrigger asChild>
+                  <button className="relative h-12 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-full transition-colors flex items-center justify-center shadow-sm">
+                    <ShoppingBag className="w-5 h-5" />
+                    {cart.length > 0 && (
+                      <Badge className="absolute -top-1.5 -right-1.5 px-1.5 min-w-[22px] h-5 flex items-center justify-center bg-[#D982B5] text-white border-none font-bold shadow-sm">
+                        {cart.length}
+                      </Badge>
+                    )}
+                  </button>
+                </SheetTrigger>
+                <SheetContent className="w-full sm:max-w-md flex flex-col">
+                  <SheetHeader>
+                    <SheetTitle>{isCheckout ? 'Finalizar Pedido' : 'Sua Sacola'}</SheetTitle>
+                  </SheetHeader>
 
-                    {!isCheckout ? (
-                      cart.length === 0 ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground space-y-4">
-                          <ShoppingBag className="w-16 h-16 text-slate-200" />
-                          <p className="text-lg">Sua sacola está vazia.</p>
-                        </div>
-                      ) : (
-                        <>
-                          <ScrollArea className="flex-1 -mx-6 px-6 my-4">
-                            <div className="space-y-4">
-                              {cart.map((item) => (
-                                <div
-                                  key={item.sku_id}
-                                  className="flex gap-4 items-center bg-white border p-3 rounded-2xl shadow-sm"
-                                >
-                                  {item.image_url ? (
-                                    <img
-                                      src={item.image_url}
-                                      alt={item.product_name}
-                                      className="w-16 h-16 rounded-xl object-cover bg-slate-50"
-                                    />
-                                  ) : (
-                                    <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center">
-                                      <Store className="w-6 h-6 text-slate-300" />
-                                    </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-slate-900 truncate">
-                                      {item.product_name}
-                                    </p>
-                                    {item.attributes_desc && (
-                                      <p className="text-xs text-slate-500 truncate mt-0.5">
-                                        {item.attributes_desc}
-                                      </p>
-                                    )}
-                                    <p className="font-bold text-[#D982B5] mt-1">
-                                      {new Intl.NumberFormat('pt-BR', {
-                                        style: 'currency',
-                                        currency: 'BRL',
-                                      }).format(item.price)}
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-1">
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-7 w-7 text-slate-600 hover:bg-white hover:text-[#D982B5] rounded-md"
-                                      onClick={() => updateQuantity(item.sku_id, -1)}
-                                    >
-                                      <Minus className="h-3 w-3" />
-                                    </Button>
-                                    <span className="w-4 text-center text-sm font-medium">
-                                      {item.quantity}
-                                    </span>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-7 w-7 text-slate-600 hover:bg-white hover:text-[#D982B5] rounded-md"
-                                      onClick={() => updateQuantity(item.sku_id, 1)}
-                                    >
-                                      <Plus className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                  <button
-                                    className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                                    onClick={() => remove(item.sku_id)}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                          <div className="pt-4 border-t space-y-4">
-                            <div className="flex justify-between font-bold text-xl text-slate-900">
-                              <span>Total</span>
-                              <span>
-                                {new Intl.NumberFormat('pt-BR', {
-                                  style: 'currency',
-                                  currency: 'BRL',
-                                }).format(cartTotal)}
-                              </span>
-                            </div>
-                            <Button
-                              className="w-full h-14 text-lg rounded-2xl bg-[#D982B5] hover:bg-[#c272a1] shadow-lg shadow-[#D982B5]/20"
-                              onClick={() => setIsCheckout(true)}
-                            >
-                              Finalizar Compra
-                            </Button>
-                          </div>
-                        </>
-                      )
+                  {!isCheckout ? (
+                    cart.length === 0 ? (
+                      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground space-y-4">
+                        <ShoppingBag className="w-16 h-16 text-slate-200" />
+                        <p className="text-lg">Sua sacola está vazia.</p>
+                      </div>
                     ) : (
-                      <form onSubmit={handleCheckout} className="flex-1 flex flex-col">
+                      <>
                         <ScrollArea className="flex-1 -mx-6 px-6 my-4">
                           <div className="space-y-4">
-                            <div className="space-y-1.5">
-                              <Label htmlFor="name" className="text-slate-700">
-                                Nome Completo
-                              </Label>
-                              <Input
-                                id="name"
-                                required
-                                className="h-12 rounded-xl"
-                                value={customer.name}
-                                onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label htmlFor="email" className="text-slate-700">
-                                E-mail
-                              </Label>
-                              <Input
-                                id="email"
-                                type="email"
-                                required
-                                className="h-12 rounded-xl"
-                                value={customer.email}
-                                onChange={(e) =>
-                                  setCustomer({ ...customer, email: e.target.value })
-                                }
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label htmlFor="phone" className="text-slate-700">
-                                Telefone / WhatsApp
-                              </Label>
-                              <Input
-                                id="phone"
-                                type="tel"
-                                required
-                                className="h-12 rounded-xl"
-                                value={customer.phone}
-                                onChange={(e) =>
-                                  setCustomer({ ...customer, phone: e.target.value })
-                                }
-                              />
-                            </div>
+                            {cart.map((item) => (
+                              <div
+                                key={item.sku_id}
+                                className="flex gap-4 items-center bg-white border p-3 rounded-2xl shadow-sm"
+                              >
+                                {item.image_url ? (
+                                  <img
+                                    src={item.image_url}
+                                    alt={item.product_name}
+                                    className="w-16 h-16 rounded-xl object-cover bg-slate-50"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center">
+                                    <Store className="w-6 h-6 text-slate-300" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-slate-900 truncate">
+                                    {item.product_name}
+                                  </p>
+                                  {item.attributes_desc && (
+                                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                                      {item.attributes_desc}
+                                    </p>
+                                  )}
+                                  <p className="font-bold text-[#D982B5] mt-1">
+                                    {new Intl.NumberFormat('pt-BR', {
+                                      style: 'currency',
+                                      currency: 'BRL',
+                                    }).format(item.price)}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-1">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-slate-600 hover:bg-white hover:text-[#D982B5] rounded-md"
+                                    onClick={() => updateQuantity(item.sku_id, -1)}
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </Button>
+                                  <span className="w-4 text-center text-sm font-medium">
+                                    {item.quantity}
+                                  </span>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-slate-600 hover:bg-white hover:text-[#D982B5] rounded-md"
+                                    onClick={() => updateQuantity(item.sku_id, 1)}
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <button
+                                  className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                                  onClick={() => remove(item.sku_id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
                           </div>
                         </ScrollArea>
-                        <div className="pt-4 border-t space-y-3">
-                          <div className="flex justify-between font-bold mb-2 text-xl text-slate-900">
-                            <span>Total a pagar</span>
+                        <div className="pt-4 border-t space-y-4">
+                          <div className="flex justify-between font-bold text-xl text-slate-900">
+                            <span>Total</span>
                             <span>
                               {new Intl.NumberFormat('pt-BR', {
                                 style: 'currency',
@@ -407,28 +349,90 @@ export default function StorefrontLayout() {
                             </span>
                           </div>
                           <Button
-                            type="submit"
                             className="w-full h-14 text-lg rounded-2xl bg-[#D982B5] hover:bg-[#c272a1] shadow-lg shadow-[#D982B5]/20"
-                            disabled={checkoutLoading}
+                            onClick={() => setIsCheckout(true)}
                           >
-                            {checkoutLoading ? 'Processando...' : 'Confirmar Pedido'}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="w-full h-12 text-slate-500 rounded-xl"
-                            onClick={() => setIsCheckout(false)}
-                            disabled={checkoutLoading}
-                          >
-                            Voltar à Sacola
+                            Finalizar Compra
                           </Button>
                         </div>
-                      </form>
-                    )}
-                  </SheetContent>
-                </Sheet>
-              </div>
-             </div>
+                      </>
+                    )
+                  ) : (
+                    <form onSubmit={handleCheckout} className="flex-1 flex flex-col">
+                      <ScrollArea className="flex-1 -mx-6 px-6 my-4">
+                        <div className="space-y-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="name" className="text-slate-700">
+                              Nome Completo
+                            </Label>
+                            <Input
+                              id="name"
+                              required
+                              className="h-12 rounded-xl"
+                              value={customer.name}
+                              onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="email" className="text-slate-700">
+                              E-mail
+                            </Label>
+                            <Input
+                              id="email"
+                              type="email"
+                              required
+                              className="h-12 rounded-xl"
+                              value={customer.email}
+                              onChange={(e) => setCustomer({ ...customer, email: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="phone" className="text-slate-700">
+                              Telefone / WhatsApp
+                            </Label>
+                            <Input
+                              id="phone"
+                              type="tel"
+                              required
+                              className="h-12 rounded-xl"
+                              value={customer.phone}
+                              onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      </ScrollArea>
+                      <div className="pt-4 border-t space-y-3">
+                        <div className="flex justify-between font-bold mb-2 text-xl text-slate-900">
+                          <span>Total a pagar</span>
+                          <span>
+                            {new Intl.NumberFormat('pt-BR', {
+                              style: 'currency',
+                              currency: 'BRL',
+                            }).format(cartTotal)}
+                          </span>
+                        </div>
+                        <Button
+                          type="submit"
+                          className="w-full h-14 text-lg rounded-2xl bg-[#D982B5] hover:bg-[#c272a1] shadow-lg shadow-[#D982B5]/20"
+                          disabled={checkoutLoading}
+                        >
+                          {checkoutLoading ? 'Processando...' : 'Confirmar Pedido'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="w-full h-12 text-slate-500 rounded-xl"
+                          onClick={() => setIsCheckout(false)}
+                          disabled={checkoutLoading}
+                        >
+                          Voltar à Sacola
+                        </Button>
+                      </div>
+                    </form>
+                  )}
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
 
           <div className="border-t border-slate-100 bg-white">
