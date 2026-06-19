@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Outlet, useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
-import { Store, Plus, Minus, Trash2, Search, MessageCircle, ShoppingBag } from 'lucide-react'
+import { Store, Plus, Minus, Trash2, Search, MessageCircle, ShoppingBag, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
@@ -50,6 +50,7 @@ export default function StorefrontLayout() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeCategory, setActiveCategory] = useState('Todos')
+  const [productCount, setProductCount] = useState(0)
 
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -75,6 +76,12 @@ export default function StorefrontLayout() {
         setOrg(null)
       } else {
         setOrg(data)
+        
+        const { count } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', data.id)
+        if (count !== null) setProductCount(count)
       }
       setLoading(false)
     }
@@ -170,46 +177,62 @@ export default function StorefrontLayout() {
       value={{ org, cart, addToCart, searchTerm, setSearchTerm, activeCategory, setActiveCategory }}
     >
       <div className="min-h-screen bg-slate-50 pb-20 md:pb-0">
-        <header
-          className={cn(
-            'text-white sticky top-0 z-50 shadow-md bg-cover bg-center transition-all',
-            !org.banner_url && 'bg-[#D982B5]',
+        <header className="bg-white border-b border-slate-100 shadow-sm relative z-10">
+          {org.banner_url ? (
+            <div className="h-32 sm:h-48 w-full bg-cover bg-center" style={{ backgroundImage: `url(${org.banner_url})` }} />
+          ) : (
+            <div className="h-24 sm:h-32 w-full bg-gradient-to-r from-[#D982B5] to-[#f49acb]" />
           )}
-          style={org.banner_url ? { backgroundImage: `url(${org.banner_url})` } : undefined}
-        >
-          {org.banner_url && (
-            <div className="absolute inset-0 bg-black/40 z-0 backdrop-blur-[2px]" />
-          )}
-          <div className="max-w-6xl mx-auto px-4 pt-5 pb-4 flex flex-col gap-5 relative z-10">
-            <div className="flex items-center justify-between">
-              <Link
-                to={`/vitrine/${slug}`}
-                className="flex items-center gap-3 hover:opacity-90 transition-opacity"
-              >
-                {org.logo_url ? (
-                  <img
-                    src={org.logo_url}
-                    alt={org.name}
-                    className="h-12 w-auto rounded-xl object-contain bg-white/10 p-1"
-                  />
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Store className="w-8 h-8" />
-                    <span className="font-bold text-xl md:text-2xl tracking-tight">{org.name}</span>
-                  </div>
-                )}
-              </Link>
+          
+          <div className="max-w-4xl mx-auto px-4 pb-6 -mt-12 sm:-mt-16 relative z-10 flex flex-col items-center text-center">
+            <Link to={`/vitrine/${slug}`} className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white overflow-hidden bg-white shadow-md flex items-center justify-center mb-4 transition-transform hover:scale-105">
+              {org.logo_url ? (
+                 <img src={org.logo_url} alt={org.name} className="w-full h-full object-cover" />
+              ) : (
+                 <Store className="w-10 h-10 text-slate-300" />
+              )}
+            </Link>
 
-              <div className="flex items-center gap-3">
-                <a
-                  href="https://wa.me/5511999999999"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="hidden sm:flex items-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white px-5 py-2.5 rounded-full text-sm font-bold transition-colors shadow-sm"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  Falar no WhatsApp
-                </a>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{org.name}</h1>
+            
+            <p className="mt-2 text-sm sm:text-base text-slate-600 max-w-md mx-auto leading-relaxed">
+              {org.description || 'Bem-vindo à nossa loja! Encontre os melhores produtos com a qualidade que você merece.'}
+            </p>
+
+            <div className="flex items-center justify-center gap-4 mt-4 text-sm font-medium text-slate-600">
+              <div className="flex items-center gap-1">
+                <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                <span>4.9 (1k+ avaliações)</span>
+              </div>
+              <div className="w-1 h-1 rounded-full bg-slate-300" />
+              <div className="flex items-center gap-1">
+                <ShoppingBag className="w-4 h-4 text-slate-400" />
+                <span>{productCount} produtos</span>
+              </div>
+            </div>
+
+            <a 
+              href={`https://wa.me/${(org.whatsapp_number || '5511999999999').replace(/\D/g, '')}`} 
+              target="_blank" 
+              rel="noreferrer"
+              className="mt-5 inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white px-6 py-3 rounded-full text-sm font-bold transition-all shadow-sm hover:shadow-md active:scale-95"
+            >
+              <MessageCircle className="w-5 h-5" />
+              Falar no WhatsApp
+            </a>
+          </div>
+
+          <div className="max-w-4xl mx-auto px-4 pb-4">
+             <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                   <Input 
+                     value={searchTerm}
+                     onChange={(e) => setSearchTerm(e.target.value)}
+                     placeholder="Buscar na loja..."
+                     className="w-full pl-12 h-12 rounded-full border-slate-200 bg-slate-50 focus-visible:ring-[#D982B5] shadow-sm text-base"
+                   />
+                </div>
 
                 <Sheet
                   open={cartOpen}
@@ -219,10 +242,10 @@ export default function StorefrontLayout() {
                   }}
                 >
                   <SheetTrigger asChild>
-                    <button className="relative p-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full transition-colors flex items-center justify-center">
+                    <button className="relative h-12 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-full transition-colors flex items-center justify-center shadow-sm">
                       <ShoppingBag className="w-5 h-5" />
                       {cart.length > 0 && (
-                        <Badge className="absolute -top-1.5 -right-1.5 px-1.5 min-w-[22px] h-5 flex items-center justify-center bg-white text-[#D982B5] border-none font-bold shadow-sm">
+                        <Badge className="absolute -top-1.5 -right-1.5 px-1.5 min-w-[22px] h-5 flex items-center justify-center bg-[#D982B5] text-white border-none font-bold shadow-sm">
                           {cart.length}
                         </Badge>
                       )}
@@ -405,33 +428,27 @@ export default function StorefrontLayout() {
                   </SheetContent>
                 </Sheet>
               </div>
-            </div>
+             </div>
+          </div>
 
-            <div className="relative">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/80" />
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="O que você está procurando?"
-                className="w-full bg-white/20 backdrop-blur-md border-white/30 text-white placeholder:text-white/80 focus-visible:ring-0 focus-visible:bg-white/30 rounded-full pl-14 h-14 shadow-sm text-base"
-              />
-            </div>
-
-            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-              {['Todos', 'Lançamentos', 'Promoções', 'Mais Vendidos', 'Acessórios'].map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={cn(
-                    'whitespace-nowrap px-6 py-2.5 rounded-full text-sm font-bold transition-all border backdrop-blur-sm',
-                    activeCategory === cat
-                      ? 'bg-white text-[#D982B5] border-white shadow-md'
-                      : 'bg-white/10 text-white border-white/20 hover:bg-white/20',
-                  )}
-                >
-                  {cat}
-                </button>
-              ))}
+          <div className="border-t border-slate-100 bg-white">
+            <div className="max-w-4xl mx-auto px-4 py-3">
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+                {['Todos', 'Lançamentos', 'Promoções', 'Mais Vendidos', 'Acessórios'].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    className={cn(
+                      'whitespace-nowrap px-5 py-2 rounded-full text-sm font-bold transition-all border',
+                      activeCategory === cat
+                        ? 'bg-[#D982B5] text-white border-[#D982B5] shadow-sm'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100',
+                    )}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </header>
