@@ -201,61 +201,68 @@ export default function StorefrontLayout() {
       value={{ org, cart, addToCart, searchTerm, setSearchTerm, activeCategory, setActiveCategory }}
     >
       <div className="min-h-screen bg-slate-50 pb-20 md:pb-0">
-        <header className="bg-white border-b border-slate-100 shadow-sm relative z-10">
-          {org.banner_url ? (
-            <div
-              className="h-32 sm:h-48 w-full bg-cover bg-center"
-              style={{ backgroundImage: `url(${org.banner_url})` }}
-            />
-          ) : (
-            <div className="h-24 sm:h-32 w-full bg-gradient-to-r from-[#be185d] to-[#f49acb]" />
-          )}
-
-          <div className="max-w-4xl mx-auto px-4 pb-6 -mt-12 sm:-mt-16 relative z-10 flex flex-col items-center text-center">
-            <Link
-              to={`/vitrine/${slug}`}
-              className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white overflow-hidden bg-white shadow-md flex items-center justify-center mb-4 transition-transform hover:scale-105"
-            >
-              {org.logo_url ? (
-                <img src={org.logo_url} alt={org.name} className="w-full h-full object-cover" />
+        <header className="relative z-10 flex flex-col">
+          <div className="relative w-full">
+            <div className="absolute inset-0 z-0">
+              {org.banner_url ? (
+                <>
+                  <div
+                    className="w-full h-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${org.banner_url})` }}
+                  />
+                  <div className="absolute inset-0 bg-black/40" />
+                </>
               ) : (
-                <Store className="w-10 h-10 text-slate-300" />
+                <div className="w-full h-full bg-gradient-to-r from-[#be185d] to-[#f49acb]" />
               )}
-            </Link>
-
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              {org.name}
-            </h1>
-
-            <p className="mt-2 text-sm sm:text-base text-slate-600 max-w-md mx-auto leading-relaxed">
-              {org.description ||
-                'Bem-vindo à nossa loja! Encontre os melhores produtos com a qualidade que você merece.'}
-            </p>
-
-            <div className="flex items-center justify-center gap-4 mt-4 text-sm font-medium text-slate-600">
-              <div className="flex items-center gap-1">
-                <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                <span>4.9 (1k+ avaliações)</span>
-              </div>
-              <div className="w-1 h-1 rounded-full bg-slate-300" />
-              <div className="flex items-center gap-1">
-                <ShoppingBag className="w-4 h-4 text-slate-400" />
-                <span>{productCount} produtos</span>
-              </div>
             </div>
 
-            <a
-              href={`https://wa.me/${(org.whatsapp_number || '5511999999999').replace(/\D/g, '')}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-5 inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white px-6 py-3 rounded-full text-sm font-bold transition-all shadow-sm hover:shadow-md active:scale-95"
-            >
-              <MessageCircle className="w-5 h-5" />
-              Falar no WhatsApp
-            </a>
+            <div className="max-w-4xl mx-auto px-4 pt-12 pb-10 relative z-10 flex flex-col items-center text-center">
+              <Link
+                to={`/vitrine/${slug}`}
+                className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white/20 overflow-hidden bg-white shadow-xl flex items-center justify-center mb-4 transition-transform hover:scale-105"
+              >
+                {org.logo_url ? (
+                  <img src={org.logo_url} alt={org.name} className="w-full h-full object-cover" />
+                ) : (
+                  <Store className="w-10 h-10 text-slate-300" />
+                )}
+              </Link>
+
+              <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight drop-shadow-md">
+                {org.name}
+              </h1>
+
+              <p className="mt-3 text-sm sm:text-base text-white/90 max-w-md mx-auto leading-relaxed drop-shadow">
+                {org.description ||
+                  'Bem-vindo à nossa loja! Encontre os melhores produtos com a qualidade que você merece.'}
+              </p>
+
+              <div className="flex items-center justify-center gap-4 mt-5 text-sm font-medium text-white/90 drop-shadow">
+                <div className="flex items-center gap-1">
+                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                  <span>4.9 (1k+ avaliações)</span>
+                </div>
+                <div className="w-1 h-1 rounded-full bg-white/50" />
+                <div className="flex items-center gap-1">
+                  <ShoppingBag className="w-4 h-4 text-white/90" />
+                  <span>{productCount} produtos</span>
+                </div>
+              </div>
+
+              <a
+                href={`https://wa.me/${(org.whatsapp_number || '5511999999999').replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-6 inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white px-6 py-3 rounded-full text-sm font-bold transition-all shadow-sm hover:shadow-md active:scale-95"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Falar no WhatsApp
+              </a>
+            </div>
           </div>
 
-          <div className="border-t border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-40 shadow-sm">
+          <div className="border-b border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-40 shadow-sm">
             <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-3">
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 group">
