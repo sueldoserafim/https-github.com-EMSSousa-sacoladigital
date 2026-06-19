@@ -126,13 +126,15 @@ export function ProductModal({ open, onOpenChange, productId, onCreated, onSaved
       if (!productId) {
         toast({
           title: 'Sucesso',
-          description: 'Produto criado! Configure os SKUs se houver variações.',
+          description: 'Produto criado com sucesso!',
         })
         onCreated(currentId)
+        onSaved()
+        onOpenChange(false)
       } else {
         toast({ title: 'Sucesso', description: 'Produto atualizado com sucesso!' })
-        await fetchProductData(currentId)
         onSaved()
+        onOpenChange(false)
       }
     } catch (err: any) {
       toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' })
@@ -147,11 +149,12 @@ export function ProductModal({ open, onOpenChange, productId, onCreated, onSaved
       for (const sku of skus) {
         await supabase
           .from('product_skus')
-          .update({ price_override: sku.price_override })
+          .update({ price_override: sku.price_override, image_url: sku.image_url })
           .eq('id', sku.id)
       }
-      toast({ title: 'Sucesso', description: 'Preços dos SKUs atualizados com sucesso!' })
+      toast({ title: 'Sucesso', description: 'SKUs atualizados com sucesso!' })
       onSaved()
+      onOpenChange(false)
     } catch (err: any) {
       toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' })
     } finally {

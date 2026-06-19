@@ -241,6 +241,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          image_url: string | null
           organization_id: string
           price_override: number | null
           product_id: string
@@ -250,6 +251,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          image_url?: string | null
           organization_id: string
           price_override?: number | null
           product_id: string
@@ -259,6 +261,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          image_url?: string | null
           organization_id?: string
           price_override?: number | null
           product_id?: string
@@ -284,6 +287,7 @@ export type Database = {
       }
       products: {
         Row: {
+          cost: number | null
           created_at: string
           id: string
           name: string
@@ -292,6 +296,7 @@ export type Database = {
           stock: number
         }
         Insert: {
+          cost?: number | null
           created_at?: string
           id?: string
           name: string
@@ -300,6 +305,7 @@ export type Database = {
           stock?: number
         }
         Update: {
+          cost?: number | null
           created_at?: string
           id?: string
           name?: string
