@@ -20,11 +20,6 @@ export function AuthLayout() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-indigo-50/50 p-4">
       <div className="w-full max-w-md animate-slide-up">
-        <div className="flex justify-center mb-8">
-          <div className="h-12 w-12 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
-            <span className="text-white font-bold text-2xl">S</span>
-          </div>
-        </div>
         <Outlet />
       </div>
     </div>
