@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
-import { ArrowLeft, Store, ShoppingCart } from 'lucide-react'
+import { ArrowLeft, Store, ShoppingBag, Heart, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useStorefront } from './StorefrontLayout'
+import { cn } from '@/lib/utils'
 
 export default function StorefrontProduct() {
   const { slug, productId } = useParams()
@@ -15,7 +16,6 @@ export default function StorefrontProduct() {
   const [skus, setSkus] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Map of attribute_id -> selected attribute_option_id
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export default function StorefrontProduct() {
 
   const matchingSku = useMemo(() => {
     if (!skus.length) return null
-    if (attributes.length === 0) return skus[0] // simple product
+    if (attributes.length === 0) return skus[0]
 
     return skus.find((sku) => {
       const skuOptionIds = sku.sku_attribute_values.map((v: any) => v.attribute_option_id)
@@ -64,13 +64,16 @@ export default function StorefrontProduct() {
     })
   }, [skus, attributes, selectedOptions])
 
-  if (loading) return <div className="text-center py-12">Carregando detalhes...</div>
-  if (!product) return <div className="text-center py-12">Produto não encontrado.</div>
+  if (loading) return <div className="text-center py-20 text-slate-500">Carregando detalhes...</div>
+  if (!product)
+    return <div className="text-center py-20 text-slate-500">Produto não encontrado.</div>
 
   const currentPrice = matchingSku?.price_override ?? product.price
   const isOutOfStock = !matchingSku || matchingSku.stock <= 0
   const isFullySelected =
     attributes.length === 0 || Object.keys(selectedOptions).length === attributes.length
+
+  const hasDiscount = currentPrice < product.price
 
   const handleAddToCart = () => {
     if (!matchingSku || isOutOfStock) return
@@ -92,40 +95,79 @@ export default function StorefrontProduct() {
       price: currentPrice,
       stock: matchingSku.stock,
       attributes_desc: attrDesc || undefined,
+      image_url: matchingSku.image_url,
     })
   }
 
-  return (
-    <div className="animate-fade-in">
-      <Link
-        to={`/vitrine/${slug}`}
-        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Voltar para a loja
-      </Link>
+  const formatMoney = (val: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
 
-      <div className="bg-white rounded-xl shadow-sm border p-6 md:p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-          <div className="aspect-square bg-slate-50 rounded-lg flex items-center justify-center border">
-            <Store className="w-32 h-32 text-slate-300" />
+  return (
+    <div className="pb-24 md:pb-0 animate-fade-in-up">
+      <div className="max-w-5xl mx-auto">
+        <div className="bg-white md:rounded-[32px] md:shadow-lg md:border border-slate-100 overflow-hidden flex flex-col md:flex-row">
+          {/* Image Gallery Section */}
+          <div className="w-full md:w-1/2 aspect-square md:aspect-auto bg-slate-50 relative flex items-center justify-center overflow-hidden">
+            <Link
+              to={`/vitrine/${slug}`}
+              className="absolute top-4 left-4 z-10 p-2.5 bg-white/80 backdrop-blur-md rounded-full shadow-sm hover:bg-white text-slate-700 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <button className="absolute top-4 right-4 z-10 p-2.5 bg-white/80 backdrop-blur-md rounded-full shadow-sm hover:bg-white hover:text-pink-600 text-slate-400 transition-colors">
+              <Heart className="w-5 h-5" />
+            </button>
+
+            {matchingSku?.image_url ? (
+              <img
+                src={matchingSku.image_url}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Store className="w-24 h-24 text-slate-300" />
+            )}
           </div>
 
-          <div className="flex flex-col">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">{product.name}</h1>
+          {/* Product Details Section */}
+          <div className="w-full md:w-1/2 p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col">
+            <Badge className="w-fit mb-4 bg-pink-100 text-pink-700 hover:bg-pink-100 border-none px-3 py-1 font-bold">
+              Mais Vendido
+            </Badge>
 
-            <div className="text-3xl font-bold text-primary mb-6">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                currentPrice,
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 leading-tight mb-3">
+              {product.name}
+            </h1>
+
+            <div className="flex items-center gap-1 text-yellow-400 mb-6">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Star key={i} className="w-4 h-4 fill-current" />
+              ))}
+              <span className="text-sm font-medium text-slate-500 ml-2">(128 avaliações)</span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4 mb-8">
+              <span className="text-3xl lg:text-4xl font-extrabold text-pink-600">
+                {formatMoney(currentPrice)}
+              </span>
+              {hasDiscount && (
+                <span className="text-lg font-medium text-slate-400 line-through">
+                  {formatMoney(product.price)}
+                </span>
               )}
             </div>
 
+            {/* Attributes Selection */}
             {attributes.length > 0 && (
-              <div className="space-y-6 flex-1">
+              <div className="space-y-6 mb-8 flex-1">
                 {attributes.map((attr) => (
-                  <div key={attr.id} className="space-y-3">
-                    <h3 className="font-semibold">{attr.name}</h3>
-                    <div className="flex flex-wrap gap-2">
+                  <div key={attr.id}>
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="font-semibold text-slate-900 text-sm uppercase tracking-wider">
+                        {attr.name}
+                      </h3>
+                    </div>
+                    <div className="flex flex-wrap gap-2.5">
                       {attr.attribute_options.map((opt: any) => {
                         const isSelected = selectedOptions[attr.id] === opt.id
                         return (
@@ -134,11 +176,12 @@ export default function StorefrontProduct() {
                             onClick={() =>
                               setSelectedOptions((prev) => ({ ...prev, [attr.id]: opt.id }))
                             }
-                            className={`px-4 py-2 text-sm border rounded-md transition-colors ${
+                            className={cn(
+                              'min-w-[3.5rem] px-4 py-2.5 rounded-xl text-sm font-bold transition-all border-2',
                               isSelected
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-white text-slate-700 hover:bg-slate-50'
-                            }`}
+                                ? 'border-pink-600 bg-pink-50 text-pink-700'
+                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
+                            )}
                           >
                             {opt.value}
                           </button>
@@ -150,30 +193,50 @@ export default function StorefrontProduct() {
               </div>
             )}
 
-            <div className="mt-8 pt-6 border-t">
-              {matchingSku ? (
-                <div className="flex items-center gap-2 mb-4 text-sm">
-                  <span className="text-muted-foreground">SKU: {matchingSku.sku_code}</span>
-                  <Badge variant={isOutOfStock ? 'destructive' : 'secondary'}>
-                    {isOutOfStock ? 'Sem estoque' : `${matchingSku.stock} em estoque`}
-                  </Badge>
+            <div className="mt-4 prose prose-sm text-slate-600 mb-8 hidden md:block">
+              <p>
+                Este produto oferece conforto e estilo para o seu dia a dia. Fabricado com materiais
+                de alta qualidade para garantir durabilidade e o melhor caimento.
+              </p>
+            </div>
+
+            {/* Desktop CTA */}
+            <div className="hidden md:block mt-auto">
+              {matchingSku && (
+                <div className="flex items-center gap-2 mb-4 text-sm font-medium">
+                  <span className="text-slate-500">Ref: {matchingSku.sku_code}</span>
+                  <span className="text-slate-300">•</span>
+                  <span className={isOutOfStock ? 'text-red-500' : 'text-green-500'}>
+                    {isOutOfStock ? 'Sem estoque' : 'Em estoque'}
+                  </span>
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground mb-4">Combinação indisponível.</p>
               )}
 
               <Button
                 size="lg"
-                className="w-full text-lg h-14"
+                className="w-full h-14 text-lg rounded-2xl bg-pink-600 hover:bg-pink-700 shadow-xl shadow-pink-600/20 transition-all active:scale-[0.98]"
                 disabled={!isFullySelected || isOutOfStock}
                 onClick={handleAddToCart}
               >
-                <ShoppingCart className="w-5 h-5 mr-2" />
-                {isOutOfStock ? 'Indisponível' : 'Adicionar ao Carrinho'}
+                <ShoppingBag className="w-5 h-5 mr-2" />
+                {isOutOfStock ? 'Produto Esgotado' : 'Adicionar à Sacola'}
               </Button>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Sticky CTA */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50 animate-slide-up">
+        <Button
+          size="lg"
+          className="w-full h-14 text-lg rounded-2xl bg-pink-600 hover:bg-pink-700 shadow-xl shadow-pink-600/20 active:scale-[0.98] transition-all"
+          disabled={!isFullySelected || isOutOfStock}
+          onClick={handleAddToCart}
+        >
+          <ShoppingBag className="w-5 h-5 mr-2" />
+          {isOutOfStock ? 'Produto Esgotado' : 'Adicionar à Sacola'}
+        </Button>
       </div>
     </div>
   )

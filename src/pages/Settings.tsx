@@ -21,6 +21,8 @@ export default function Settings() {
 
   const [orgName, setOrgName] = useState('')
   const [orgSlug, setOrgSlug] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [bannerUrl, setBannerUrl] = useState('')
   const [fullName, setFullName] = useState('')
   const [loadingOrg, setLoadingOrg] = useState(false)
   const [loadingProfile, setLoadingProfile] = useState(false)
@@ -29,6 +31,8 @@ export default function Settings() {
     if (organization) {
       setOrgName(organization.name)
       setOrgSlug(organization.slug || '')
+      setLogoUrl((organization as any).logo_url || '')
+      setBannerUrl((organization as any).banner_url || '')
     }
     if (profile) {
       setFullName(profile.full_name || '')
@@ -44,7 +48,12 @@ export default function Settings() {
 
     const { error } = await supabase
       .from('organizations')
-      .update({ name: orgName, slug: safeSlug })
+      .update({
+        name: orgName,
+        slug: safeSlug,
+        logo_url: logoUrl,
+        banner_url: bannerUrl,
+      } as any)
       .eq('id', organization.id)
 
     setLoadingOrg(false)
@@ -121,6 +130,24 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground">
                   Sua vitrine será acessível em: /vitrine/{orgSlug || '...'}
                 </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="logoUrl">Logo da Loja (URL)</Label>
+                <Input
+                  id="logoUrl"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://exemplo.com/logo.png"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bannerUrl">Banner da Loja (URL)</Label>
+                <Input
+                  id="bannerUrl"
+                  value={bannerUrl}
+                  onChange={(e) => setBannerUrl(e.target.value)}
+                  placeholder="https://exemplo.com/banner.png"
+                />
               </div>
             </CardContent>
             <CardFooter>
