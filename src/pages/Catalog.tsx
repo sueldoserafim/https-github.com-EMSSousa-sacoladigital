@@ -133,6 +133,9 @@ export default function Catalog() {
             useCORS: true,
             logging: false,
             windowWidth: 794,
+            letterRendering: true,
+            scrollX: 0,
+            scrollY: 0,
             onclone: (clonedDoc: any) => {
               const el = clonedDoc.getElementById('hidden-catalog-content')
               if (el && el.parentElement) {
@@ -622,7 +625,16 @@ export default function Catalog() {
       </Dialog>
 
       {/* Hidden container for PDF generation */}
-      <div className="fixed top-[200vh] left-[200vw] pointer-events-none z-[-1]">
+      <div
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          top: '0',
+          width: '794px',
+          overflow: 'hidden',
+          pointerEvents: 'none',
+        }}
+      >
         <div
           id="hidden-catalog-content"
           className="w-[794px] bg-slate-50 min-h-[1123px] relative flex flex-col font-sans"
@@ -885,8 +897,8 @@ export default function Catalog() {
             className="bg-white border-t border-slate-100 pb-12 pt-12 px-8 text-center flex flex-col items-center gap-6 relative shrink-0 card-wrapper"
             style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
           >
-            <div className="w-full grid grid-cols-3 gap-6 text-left z-10 text-sm">
-              <div>
+            <div className="w-full flex flex-row gap-6 text-left z-10 text-sm">
+              <div className="flex-1">
                 <h4 className="font-bold text-slate-900 mb-3 tracking-widest text-xs">Contato</h4>
                 {showWhatsApp && (
                   <p className="text-slate-600 mb-2 flex items-center gap-2">
@@ -903,7 +915,7 @@ export default function Catalog() {
                   contato@{organization?.slug || 'empresa'}.com.br
                 </p>
               </div>
-              <div>
+              <div className="flex-1">
                 <h4 className="font-bold text-slate-900 mb-3 tracking-widest text-xs">
                   Redes Sociais
                 </h4>
@@ -920,7 +932,7 @@ export default function Catalog() {
                   fb.com/{organization?.slug || 'facebook'}
                 </p>
               </div>
-              <div>
+              <div className="flex-1">
                 <h4 className="font-bold text-slate-900 mb-3 tracking-widest text-xs">Endereço</h4>
                 <p className="text-slate-600 leading-relaxed">
                   <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 inline-flex items-center justify-center mr-2 float-left shrink-0">
