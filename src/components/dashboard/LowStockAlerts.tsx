@@ -7,7 +7,7 @@ interface Product {
   stock: number
 }
 
-export function LowStockAlerts({ products }: { products: Product[] }) {
+export function LowStockAlerts({ products = [] }: { products?: Product[] }) {
   return (
     <Card className="md:col-span-1 lg:col-span-2 border-border/50 shadow-sm flex flex-col">
       <CardHeader>
@@ -18,7 +18,7 @@ export function LowStockAlerts({ products }: { products: Product[] }) {
         <CardDescription>Produtos com estoque baixo (&lt; 10)</CardDescription>
       </CardHeader>
       <CardContent className="flex-1">
-        {products.length === 0 ? (
+        {!products || products.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center p-6 bg-muted/30 rounded-lg border border-dashed h-full">
             <Package className="w-8 h-8 text-muted-foreground mb-2" />
             <p className="text-sm text-muted-foreground">Estoque saudável.</p>
