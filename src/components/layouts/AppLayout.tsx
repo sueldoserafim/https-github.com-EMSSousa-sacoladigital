@@ -24,6 +24,7 @@ import {
   ExternalLink,
   Bell,
   User,
+  DollarSign,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -49,6 +50,7 @@ export function AppLayout() {
     { name: 'Produtos', href: '/products', icon: ShoppingBag },
     { name: 'Pedidos', href: '/orders', icon: ShoppingCart },
     { name: 'Clientes', href: '/customers', icon: Users },
+    { name: 'Financeiro', href: '/finance', icon: DollarSign },
     { name: 'Equipe', href: '/team', icon: UserCog },
     { name: 'Calculadora', href: '/calculator', icon: Calculator },
     { name: 'Catálogo PDF', href: '/catalog', icon: FileText },

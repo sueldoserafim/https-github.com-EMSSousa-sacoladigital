@@ -19,6 +19,7 @@ import Team from './pages/Team'
 import Customers from './pages/Customers'
 import Calculator from './pages/Calculator'
 import Catalog from './pages/Catalog'
+import Finance from './pages/Finance'
 import StorefrontLayout from './pages/storefront/StorefrontLayout'
 import StorefrontIndex from './pages/storefront/StorefrontIndex'
 import StorefrontProduct from './pages/storefront/StorefrontProduct'
@@ -56,6 +57,7 @@ const App = () => (
               <Route path="/customers" element={<Customers />} />
               <Route path="/calculator" element={<Calculator />} />
               <Route path="/catalog" element={<Catalog />} />
+              <Route path="/finance" element={<Finance />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
