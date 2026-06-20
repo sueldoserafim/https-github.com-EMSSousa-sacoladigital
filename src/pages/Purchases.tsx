@@ -14,9 +14,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Link } from 'react-router-dom'
 import { useToast } from '@/hooks/use-toast'
 import { NewPurchaseModal } from '@/components/purchases/NewPurchaseModal'
 import { PurchaseDetailsModal } from '@/components/purchases/PurchaseDetailsModal'
+import { PreOrdersAlertModal } from '@/components/purchases/PreOrdersAlertModal'
 
 export default function Purchases() {
   const [purchases, setPurchases] = useState<any[]>([])
@@ -24,6 +26,7 @@ export default function Purchases() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isNewModalOpen, setIsNewModalOpen] = useState(false)
   const [selectedPurchase, setSelectedPurchase] = useState<any>(null)
+  const [affectedPreOrders, setAffectedPreOrders] = useState<any[]>([])
   const { organization } = useAuth()
   const { toast } = useToast()
 
@@ -90,10 +93,15 @@ export default function Purchases() {
           <h1 className="text-2xl font-bold tracking-tight">Pedidos de Compra</h1>
           <p className="text-muted-foreground">Gerencie o recebimento de mercadorias.</p>
         </div>
-        <Button onClick={() => setIsNewModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Pedido de Compra
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link to="/pre-orders">Gerenciar Encomendas</Link>
+          </Button>
+          <Button onClick={() => setIsNewModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Pedido de Compra
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -173,6 +181,17 @@ export default function Purchases() {
           onClose={() => setSelectedPurchase(null)}
           purchaseId={selectedPurchase.id}
           onSuccess={fetchPurchases}
+          onReceiveWithPreorders={(preOrders) => {
+            setAffectedPreOrders(preOrders)
+            fetchPurchases()
+          }}
+        />
+      )}
+
+      {affectedPreOrders.length > 0 && (
+        <PreOrdersAlertModal
+          preOrders={affectedPreOrders}
+          onClose={() => setAffectedPreOrders([])}
         />
       )}
     </div>

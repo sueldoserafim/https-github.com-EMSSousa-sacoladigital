@@ -26,6 +26,7 @@ interface PurchaseDetailsModalProps {
   onClose: () => void
   purchaseId: string
   onSuccess: () => void
+  onReceiveWithPreorders?: (preOrders: any[]) => void
 }
 
 export function PurchaseDetailsModal({
@@ -33,6 +34,7 @@ export function PurchaseDetailsModal({
   onClose,
   purchaseId,
   onSuccess,
+  onReceiveWithPreorders,
 }: PurchaseDetailsModalProps) {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
@@ -78,7 +80,24 @@ export function PurchaseDetailsModal({
         title: 'Mercadorias recebidas com sucesso!',
         description: 'Estoque e custos atualizados.',
       })
-      onSuccess()
+
+      const skuIds = items.map((item) => item.sku_id)
+      if (skuIds.length > 0) {
+        const { data: pendingPreOrders } = await (supabase as any)
+          .from('pre_orders')
+          .select('*, customers(name), product_skus(sku_code, products(name))')
+          .in('sku_id', skuIds)
+          .eq('status', 'pending')
+
+        if (pendingPreOrders && pendingPreOrders.length > 0 && onReceiveWithPreorders) {
+          onReceiveWithPreorders(pendingPreOrders)
+        } else {
+          onSuccess()
+        }
+      } else {
+        onSuccess()
+      }
+
       onClose()
     } catch (error: any) {
       toast({ title: 'Erro ao receber pedido', description: error.message, variant: 'destructive' })
