@@ -65,10 +65,6 @@ const getStatusBadge = (status: string) => {
 export function RecentOrdersTable({ orders }: { orders: Order[] }) {
   return (
     <Card className="border-border/50 shadow-sm">
-      <CardHeader>
-        <CardTitle>Pedidos Recentes</CardTitle>
-        <CardDescription>Últimas transações da sua loja</CardDescription>
-      </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <Table>
