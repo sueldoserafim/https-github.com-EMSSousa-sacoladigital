@@ -6,24 +6,39 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
-interface NewExpenseModalProps {
+interface NewTransactionModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
   organizationId: string
+  transactionToEdit?: any
 }
 
-export function NewExpenseModal({
+export function NewTransactionModal({
   open,
   onOpenChange,
   onSuccess,
   organizationId,
-}: NewExpenseModalProps) {
+  transactionToEdit,
+}: NewTransactionModalProps) {
   const [loading, setLoading] = useState(false)
-  const [description, setDescription] = useState('')
-  const [amount, setAmount] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [type, setType] = useState(transactionToEdit?.type || 'INCOME')
+  const [description, setDescription] = useState(transactionToEdit?.description || '')
+  const [amount, setAmount] = useState(transactionToEdit?.amount?.toString() || '')
+
+  const initialDate = transactionToEdit?.created_at
+    ? new Date(transactionToEdit.created_at).toISOString().split('T')[0]
+    : new Date().toISOString().split('T')[0]
+
+  const [date, setDate] = useState(initialDate)
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,24 +50,40 @@ export function NewExpenseModal({
       const [year, month, day] = date.split('-').map(Number)
       const localDate = new Date(year, month - 1, day)
 
-      const { error } = await supabase.from('financial_transactions' as any).insert({
-        organization_id: organizationId,
-        type: 'EXPENSE',
-        amount: parseFloat(amount),
-        description,
-        created_at: localDate.toISOString(),
-      })
+      if (transactionToEdit) {
+        const { error } = await supabase
+          .from('financial_transactions' as any)
+          .update({
+            type,
+            amount: parseFloat(amount),
+            description,
+            created_at: localDate.toISOString(),
+          })
+          .eq('id', transactionToEdit.id)
 
-      if (error) throw error
+        if (error) throw error
+        toast({ title: 'Transação atualizada com sucesso!' })
+      } else {
+        const { error } = await supabase.from('financial_transactions' as any).insert({
+          organization_id: organizationId,
+          type,
+          amount: parseFloat(amount),
+          description,
+          created_at: localDate.toISOString(),
+        })
 
-      toast({ title: 'Despesa adicionada com sucesso!' })
+        if (error) throw error
+        toast({ title: 'Transação adicionada com sucesso!' })
+      }
+
       onSuccess()
       onOpenChange(false)
       setDescription('')
       setAmount('')
+      setType('INCOME')
     } catch (error: any) {
       toast({
-        title: 'Erro ao adicionar despesa',
+        title: 'Erro ao salvar transação',
         description: error.message,
         variant: 'destructive',
       })
@@ -65,17 +96,30 @@ export function NewExpenseModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nova Despesa</DialogTitle>
+          <DialogTitle>{transactionToEdit ? 'Editar Transação' : 'Nova Transação'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="type">Tipo</Label>
+            <Select value={type} onValueChange={setType} disabled={!!transactionToEdit?.order_id}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="INCOME">Receita</SelectItem>
+                <SelectItem value="EXPENSE">Despesa</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="description">Descrição</Label>
             <Input
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ex: Aluguel, Fornecedor..."
+              placeholder="Ex: Aluguel, Venda, Fornecedor..."
               required
             />
           </div>

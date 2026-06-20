@@ -2,10 +2,20 @@ import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Plus, TrendingUp, TrendingDown, DollarSign, Download, Filter } from 'lucide-react'
+import {
+  Loader2,
+  Plus,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Download,
+  Filter,
+  Pencil,
+  Trash2,
+} from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
-import { NewExpenseModal } from '@/components/finance/NewExpenseModal'
+import { NewTransactionModal } from '@/components/finance/NewTransactionModal'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from 'recharts'
 import {
   Select,
@@ -23,6 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { MetricCard } from '@/components/dashboard/MetricCard'
 
 export default function Finance() {
   const { organization, loading: authLoading } = useAuth()
@@ -31,6 +42,7 @@ export default function Finance() {
   const [transactions, setTransactions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [transactionToEdit, setTransactionToEdit] = useState<any>(null)
   const [dateFilter, setDateFilter] = useState('30d')
 
   const fetchTransactions = async () => {
@@ -80,8 +92,8 @@ export default function Finance() {
     return transactions.reduce(
       (acc, t) => {
         const amount = Number(t.amount)
-        if (t.type === 'REVENUE') {
-          acc.revenue += amount
+        if (t.type === 'INCOME' || t.type === 'REVENUE') {
+          acc.income += amount
           acc.balance += amount
         } else if (t.type === 'EXPENSE') {
           acc.expense += amount
@@ -92,12 +104,12 @@ export default function Finance() {
         }
         return acc
       },
-      { revenue: 0, expense: 0, balance: 0 },
+      { income: 0, expense: 0, balance: 0 },
     )
   }, [transactions])
 
   const chartData = useMemo(() => {
-    const dataByDate: Record<string, { date: string; revenue: number; expense: number }> = {}
+    const dataByDate: Record<string, { date: string; income: number; expense: number }> = {}
 
     transactions.forEach((t) => {
       const dateStr = new Date(t.created_at).toLocaleDateString('pt-BR', {
@@ -105,9 +117,10 @@ export default function Finance() {
         day: 'numeric',
       })
       if (!dataByDate[dateStr]) {
-        dataByDate[dateStr] = { date: dateStr, revenue: 0, expense: 0 }
+        dataByDate[dateStr] = { date: dateStr, income: 0, expense: 0 }
       }
-      if (t.type === 'REVENUE') dataByDate[dateStr].revenue += Number(t.amount)
+      if (t.type === 'INCOME' || t.type === 'REVENUE')
+        dataByDate[dateStr].income += Number(t.amount)
       if (t.type === 'EXPENSE' || t.type === 'REVERSAL')
         dataByDate[dateStr].expense += Number(t.amount)
     })
@@ -119,7 +132,12 @@ export default function Finance() {
     const headers = ['Data,Descricao,Tipo,Valor']
     const rows = transactions.map((t) => {
       const date = new Date(t.created_at).toLocaleDateString('pt-BR')
-      const type = t.type === 'REVENUE' ? 'Receita' : t.type === 'EXPENSE' ? 'Despesa' : 'Estorno'
+      const type =
+        t.type === 'INCOME' || t.type === 'REVENUE'
+          ? 'Receita'
+          : t.type === 'EXPENSE'
+            ? 'Despesa'
+            : 'Estorno'
       const amount = Number(t.amount).toFixed(2)
       return `"${date}","${t.description}","${type}",${amount}`
     })
@@ -131,8 +149,27 @@ export default function Finance() {
     link.click()
   }
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Deseja realmente excluir esta transação?')) return
+    try {
+      const { error } = await supabase
+        .from('financial_transactions' as any)
+        .delete()
+        .eq('id', id)
+      if (error) throw error
+      toast({ title: 'Transação excluída com sucesso!' })
+      fetchTransactions()
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao excluir transação',
+        description: error.message,
+        variant: 'destructive',
+      })
+    }
+  }
+
   const chartConfig = {
-    revenue: {
+    income: {
       label: 'Receitas',
       color: 'hsl(var(--primary))',
     },
@@ -175,10 +212,13 @@ export default function Finance() {
             <Download className="w-4 h-4 mr-2" /> Exportar
           </Button>
           <Button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setTransactionToEdit(null)
+              setIsModalOpen(true)
+            }}
             className="rounded-full shadow-md px-6 bg-primary hover:bg-primary/90"
           >
-            <Plus className="w-4 h-4 mr-2" /> Nova Despesa
+            <Plus className="w-4 h-4 mr-2" /> Nova Transação
           </Button>
         </div>
       </div>
@@ -202,81 +242,65 @@ export default function Finance() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white p-6 rounded-2xl border border-border shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl">
-              <TrendingUp className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground font-medium">Receitas</p>
-              <p className="text-2xl font-bold text-foreground">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                  summary.revenue,
-                )}
-              </p>
-            </div>
-          </div>
+      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-3">
+        <MetricCard
+          title="Receitas"
+          value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+            summary.income,
+          )}
+          icon={<TrendingUp className="w-5 h-5 text-primary" />}
+        />
+        <MetricCard
+          title="Despesas"
+          value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+            summary.expense,
+          )}
+          icon={<TrendingDown className="w-5 h-5 text-destructive" />}
+        />
+        <MetricCard
+          title="Saldo Líquido"
+          value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+            summary.balance,
+          )}
+          icon={<DollarSign className="w-5 h-5 text-foreground" />}
+        />
+      </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-border shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-rose-100 text-rose-600 rounded-xl">
-              <TrendingDown className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground font-medium">Despesas & Estornos</p>
-              <p className="text-2xl font-bold text-foreground">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                  summary.expense,
-                )}
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-border shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-blue-100 text-blue-600 rounded-xl">
-              <DollarSign className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground font-medium">Saldo Atual</p>
-              <p
-                className={cn(
-                  'text-2xl font-bold',
-                  summary.balance >= 0 ? 'text-emerald-600' : 'text-rose-600',
-                )}
-              >
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                  summary.balance,
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-3 bg-white p-6 rounded-2xl border border-border shadow-sm">
-          <h3 className="font-semibold mb-6">Desempenho Financeiro</h3>
-          <div className="h-[250px] w-full">
-            <ChartContainer config={chartConfig} className="h-full w-full">
+      <div className="bg-card border border-border/50 rounded-xl p-6 shadow-sm">
+        <h3 className="text-lg font-semibold mb-6">Receitas vs. Despesas</h3>
+        {chartData.length > 0 ? (
+          <div className="h-[300px] w-full">
+            <ChartContainer config={chartConfig} className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="hsl(var(--border))"
+                  />
                   <XAxis
                     dataKey="date"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    dy={10}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                    tickFormatter={(v) => `R$ ${v}`}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    tickFormatter={(value) => `R$ ${value}`}
+                    width={80}
                   />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                  <ChartTooltip
+                    cursor={{ fill: 'hsl(var(--muted)/0.5)' }}
+                    content={<ChartTooltipContent />}
+                  />
+                  <Legend wrapperStyle={{ paddingTop: '20px' }} />
                   <Bar
-                    dataKey="revenue"
+                    dataKey="income"
                     name="Receitas"
-                    fill="var(--color-revenue)"
+                    fill="var(--color-income)"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={40}
                   />
@@ -291,75 +315,114 @@ export default function Finance() {
               </ResponsiveContainer>
             </ChartContainer>
           </div>
+        ) : (
+          <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+            Sem dados para o período selecionado.
+          </div>
+        )}
+      </div>
+
+      <div className="bg-card border border-border/50 rounded-xl overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-border/50">
+          <h3 className="text-lg font-semibold">Histórico de Transações</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[120px]">Data</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+                <TableHead className="w-[100px] text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {transactions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    Nenhuma transação encontrada.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                transactions.map((t) => (
+                  <TableRow key={t.id}>
+                    <TableCell className="font-medium">
+                      {new Date(t.created_at).toLocaleDateString('pt-BR')}
+                    </TableCell>
+                    <TableCell>{t.description}</TableCell>
+                    <TableCell>
+                      <span
+                        className={cn(
+                          'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                          t.type === 'INCOME' || t.type === 'REVENUE'
+                            ? 'bg-primary/10 text-primary'
+                            : t.type === 'EXPENSE'
+                              ? 'bg-destructive/10 text-destructive'
+                              : 'bg-muted text-muted-foreground',
+                        )}
+                      >
+                        {t.type === 'INCOME' || t.type === 'REVENUE'
+                          ? 'Receita'
+                          : t.type === 'EXPENSE'
+                            ? 'Despesa'
+                            : 'Estorno'}
+                      </span>
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        'text-right font-medium',
+                        t.type === 'INCOME' || t.type === 'REVENUE'
+                          ? 'text-primary'
+                          : 'text-destructive',
+                      )}
+                    >
+                      {t.type === 'INCOME' || t.type === 'REVENUE' ? '+' : '-'}
+                      {new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                      }).format(Number(t.amount))}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {!t.order_id && (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              setTransactionToEdit(t)
+                              setIsModalOpen(true)
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => handleDelete(t.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Data</TableHead>
-              <TableHead>Descrição</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead className="text-right">Valor</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {transactions.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                  Nenhuma transação encontrada.
-                </TableCell>
-              </TableRow>
-            ) : (
-              transactions.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell className="whitespace-nowrap">
-                    {new Date(t.created_at).toLocaleDateString('pt-BR')}
-                  </TableCell>
-                  <TableCell>{t.description}</TableCell>
-                  <TableCell>
-                    <span
-                      className={cn(
-                        'px-2.5 py-1 rounded-full text-xs font-medium',
-                        t.type === 'REVENUE'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : t.type === 'EXPENSE'
-                            ? 'bg-rose-100 text-rose-700'
-                            : 'bg-orange-100 text-orange-700',
-                      )}
-                    >
-                      {t.type === 'REVENUE'
-                        ? 'Receita'
-                        : t.type === 'EXPENSE'
-                          ? 'Despesa'
-                          : 'Estorno'}
-                    </span>
-                  </TableCell>
-                  <TableCell
-                    className={cn(
-                      'text-right font-medium',
-                      t.type === 'REVENUE' ? 'text-emerald-600' : 'text-rose-600',
-                    )}
-                  >
-                    {t.type !== 'REVENUE' ? '- ' : '+ '}
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                      t.amount,
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
       {isModalOpen && (
-        <NewExpenseModal
+        <NewTransactionModal
           open={isModalOpen}
           onOpenChange={setIsModalOpen}
           onSuccess={fetchTransactions}
           organizationId={organization.id}
+          transactionToEdit={transactionToEdit}
         />
       )}
     </div>
