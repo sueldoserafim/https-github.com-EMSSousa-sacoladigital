@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
-import { Plus, Search, Edit2, Trash2 } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, TrendingUp, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -30,6 +30,7 @@ export default function Suppliers() {
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [purchaseStats, setPurchaseStats] = useState<any>({ topSupplier: null, totalSpent: 0 })
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null)
   const [supplierToDelete, setSupplierToDelete] = useState<any>(null)
@@ -38,20 +39,40 @@ export default function Suppliers() {
 
   const fetchSuppliers = async () => {
     if (!organization) return
-    const { data, error } = await (supabase as any)
-      .from('suppliers')
-      .select('*')
-      .eq('organization_id', organization.id)
-      .order('name')
+    const [suppliersRes, poRes] = await Promise.all([
+      (supabase as any)
+        .from('suppliers')
+        .select('*')
+        .eq('organization_id', organization.id)
+        .order('name'),
+      (supabase as any)
+        .from('purchase_orders')
+        .select('supplier_id, total_amount, suppliers(name)')
+        .eq('organization_id', organization.id),
+    ])
 
-    if (error) {
+    if (poRes.data) {
+      const stats = poRes.data.reduce((acc: any, po: any) => {
+        if (!acc[po.supplier_id]) acc[po.supplier_id] = { name: po.suppliers?.name, total: 0 }
+        acc[po.supplier_id].total += Number(po.total_amount)
+        return acc
+      }, {})
+
+      const top = Object.values(stats).sort((a: any, b: any) => b.total - a.total)[0] as any
+      const total = poRes.data.reduce((sum: number, po: any) => sum + Number(po.total_amount), 0)
+
+      setPurchaseStats({ topSupplier: top, totalSpent: total })
+    }
+
+    if (suppliersRes.error) {
+      const error = suppliersRes.error
       toast({
         title: 'Erro ao carregar fornecedores',
         description: error.message,
         variant: 'destructive',
       })
     } else {
-      setSuppliers(data || [])
+      setSuppliers(suppliersRes.data || [])
     }
     setLoading(false)
   }
@@ -97,6 +118,43 @@ export default function Suppliers() {
           <Plus className="h-4 w-4 mr-2" />
           Novo Fornecedor
         </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-primary/10 text-primary rounded-lg">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground font-medium">Top Fornecedor</p>
+              <p className="text-xl font-bold">{purchaseStats.topSupplier?.name || 'N/A'}</p>
+              {purchaseStats.topSupplier && (
+                <p className="text-sm text-muted-foreground">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                    purchaseStats.topSupplier.total,
+                  )}{' '}
+                  comprados
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg">
+              <Package className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground font-medium">Volume Total de Compras</p>
+              <p className="text-2xl font-bold">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                  purchaseStats.totalSpent,
+                )}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>

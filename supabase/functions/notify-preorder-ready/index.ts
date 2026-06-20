@@ -41,7 +41,19 @@ Deno.serve(async (req: Request) => {
         from: 'Acme <onboarding@resend.dev>',
         to: customerEmail,
         subject: `Sua encomenda de ${productName} chegou!`,
-        html: `<p>Olá ${customerName},</p><p>Sua encomenda do item <strong>${productName} (${skuCode})</strong> chegou e já está disponível em nosso estoque!</p><p>Entre em contato conosco para finalizar sua compra.</p>`,
+        html: `
+          <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+            <h2 style="color: #333;">Sua encomenda chegou! 🎉</h2>
+            <p>Olá <strong>${customerName}</strong>,</p>
+            <p>Temos uma ótima notícia! Sua encomenda do item <strong>${productName} (${skuCode})</strong> chegou e já está disponível em nosso estoque.</p>
+            <div style="margin: 30px 0;">
+              <a href="${req.headers.get('origin') || 'https://sua-loja.com'}/vitrine/loja" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Finalizar Compra Agora
+              </a>
+            </div>
+            <p>Se tiver alguma dúvida, entre em contato conosco.</p>
+          </div>
+        `,
       }),
     })
 

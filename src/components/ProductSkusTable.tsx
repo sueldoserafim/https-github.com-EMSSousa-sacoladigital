@@ -86,6 +86,7 @@ export function ProductSkusTable({
                 <TableHead>Código SKU</TableHead>
                 <TableHead>Variações</TableHead>
                 <TableHead>Preço Diferenciado</TableHead>
+                <TableHead>Estoque Mínimo</TableHead>
                 <TableHead>Estoque</TableHead>
               </TableRow>
             </TableHeader>
@@ -155,6 +156,14 @@ export function ProductSkusTable({
                         className="pl-8"
                       />
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      className="w-20"
+                      value={sku.min_stock_level === null ? '' : sku.min_stock_level}
+                      onChange={(e) => onSkuChange(sku.id, 'min_stock_level', e.target.value)}
+                    />
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">

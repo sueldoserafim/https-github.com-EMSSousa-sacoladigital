@@ -36,7 +36,7 @@ export default function Products() {
       .select(`
         id, name, price, cost, stock, created_at,
         product_skus (
-          id, sku_code, stock, price_override, image_url,
+          id, sku_code, stock, min_stock_level, price_override, image_url,
           sku_attribute_values (
             attribute_options ( value )
           )
@@ -59,6 +59,9 @@ export default function Products() {
           : p.stock || 0
 
         const inStock = totalStock > 0
+        const isLowStock = hasVariations
+          ? skus.some((s: any) => s.stock <= (s.min_stock_level || 0))
+          : totalStock <= 0
         if (!inStock) outCount++
 
         let variationsSummary = ''
@@ -84,6 +87,7 @@ export default function Products() {
           ...p,
           totalStock,
           inStock,
+          isLowStock,
           variationsSummary,
           mainImage,
           margin,
@@ -232,14 +236,16 @@ export default function Products() {
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={p.inStock ? 'outline' : 'destructive'}
+                      variant={p.inStock ? (p.isLowStock ? 'secondary' : 'outline') : 'destructive'}
                       className={
-                        p.inStock
-                          ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-200'
-                          : ''
+                        !p.inStock
+                          ? ''
+                          : p.isLowStock
+                            ? 'bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20 border-yellow-200'
+                            : 'bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-200'
                       }
                     >
-                      {p.inStock ? 'Em Estoque' : 'Sem Estoque'}
+                      {!p.inStock ? 'Sem Estoque' : p.isLowStock ? 'Estoque Baixo' : 'Em Estoque'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right pr-6">

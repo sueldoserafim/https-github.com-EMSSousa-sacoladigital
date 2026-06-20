@@ -19,7 +19,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, FileText, Upload, Download } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 
 interface PurchaseDetailsModalProps {
   isOpen: boolean
@@ -40,6 +41,7 @@ export function PurchaseDetailsModal({
   const [processing, setProcessing] = useState(false)
   const [purchase, setPurchase] = useState<any>(null)
   const [items, setItems] = useState<any[]>([])
+  const [uploading, setUploading] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -66,6 +68,56 @@ export function PurchaseDetailsModal({
     if (itemsData) setItems(itemsData)
 
     setLoading(false)
+  }
+
+  const handleUploadInvoice = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const fileExt = file.name.split('.').pop()
+      const filePath = `${purchaseId}/invoice-${Date.now()}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('purchase-documents')
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      const { error: updateError } = await (supabase as any)
+        .from('purchase_orders')
+        .update({ invoice_url: filePath })
+        .eq('id', purchaseId)
+
+      if (updateError) throw updateError
+
+      toast({ title: 'Nota fiscal anexada com sucesso!' })
+      loadDetails()
+      onSuccess()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao enviar nota fiscal',
+        description: err.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const downloadInvoice = async () => {
+    if (!purchase.invoice_url) return
+    try {
+      const { data, error } = await supabase.storage
+        .from('purchase-documents')
+        .createSignedUrl(purchase.invoice_url, 60 * 60)
+
+      if (error) throw error
+      window.open(data.signedUrl, '_blank')
+    } catch (err: any) {
+      toast({ title: 'Erro ao baixar arquivo', description: err.message, variant: 'destructive' })
+    }
   }
 
   const handleReceive = async () => {
@@ -163,15 +215,46 @@ export function PurchaseDetailsModal({
         </DialogHeader>
 
         <div className="space-y-6">
-          <div className="bg-accent/40 p-4 rounded-lg border">
-            <h4 className="font-semibold text-sm mb-2">Dados do Fornecedor</h4>
-            <p className="font-medium">{purchase.suppliers?.name}</p>
-            <p className="text-sm text-muted-foreground">
-              Email: {purchase.suppliers?.email || '-'}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Telefone: {purchase.suppliers?.phone || '-'}
-            </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-accent/40 p-4 rounded-lg border">
+              <h4 className="font-semibold text-sm mb-2">Dados do Fornecedor</h4>
+              <p className="font-medium">{purchase.suppliers?.name}</p>
+              <p className="text-sm text-muted-foreground">
+                Email: {purchase.suppliers?.email || '-'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Telefone: {purchase.suppliers?.phone || '-'}
+              </p>
+            </div>
+            <div className="bg-accent/40 p-4 rounded-lg border flex flex-col justify-center items-start space-y-3">
+              <h4 className="font-semibold text-sm">Documento (NF/Recibo)</h4>
+              {purchase.invoice_url ? (
+                <Button variant="outline" className="w-full" onClick={downloadInvoice}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Baixar Documento
+                </Button>
+              ) : (
+                <div className="relative w-full">
+                  <Input
+                    type="file"
+                    className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full"
+                    onChange={handleUploadInvoice}
+                    disabled={uploading}
+                    accept=".pdf,image/*"
+                  />
+                  <Button variant="outline" className="w-full" disabled={uploading}>
+                    {uploading ? (
+                      'Enviando...'
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Anexar Nota Fiscal
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="overflow-x-auto">

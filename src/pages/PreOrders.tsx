@@ -12,7 +12,18 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Bell, CheckCircle } from 'lucide-react'
+import { Plus, Bell, CheckCircle, ArrowRightLeft, TrendingUp } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Select,
   SelectContent,
@@ -27,6 +38,8 @@ export default function PreOrders() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [isNewModalOpen, setIsNewModalOpen] = useState(false)
+  const [convertToOrderId, setConvertToOrderId] = useState<any>(null)
+  const [converting, setConverting] = useState(false)
 
   const { organization } = useAuth()
   const { toast } = useToast()
@@ -56,6 +69,66 @@ export default function PreOrders() {
   useEffect(() => {
     fetchPreOrders()
   }, [organization, statusFilter])
+
+  const topDemandSkus = preOrders
+    .filter((po) => po.status === 'pending')
+    .reduce(
+      (acc, po) => {
+        const skuName = `${po.product_skus?.products?.name} - ${po.product_skus?.sku_code}`
+        if (!acc[skuName]) acc[skuName] = 0
+        acc[skuName] += po.quantity
+        return acc
+      },
+      {} as Record<string, number>,
+    )
+
+  const sortedDemand = Object.entries(topDemandSkus)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+
+  const handleConvertConfirmed = async () => {
+    if (!convertToOrderId || !organization) return
+    setConverting(true)
+    try {
+      const orderNumber = `ORD-${Date.now().toString().slice(-6)}`
+
+      const { data: order, error: orderError } = await (supabase as any)
+        .from('orders')
+        .insert({
+          organization_id: organization.id,
+          customer_id: convertToOrderId.customer_id,
+          order_number: orderNumber,
+          status: 'Novo',
+          total: 0,
+        })
+        .select()
+        .single()
+
+      if (orderError) throw orderError
+
+      const { error: itemError } = await (supabase as any).from('order_items').insert({
+        order_id: order.id,
+        sku_id: convertToOrderId.sku_id,
+        quantity: convertToOrderId.quantity,
+        price: 0,
+      })
+
+      if (itemError) throw itemError
+
+      await (supabase as any)
+        .from('pre_orders')
+        .update({ status: 'fulfilled' })
+        .eq('id', convertToOrderId.id)
+
+      toast({ title: 'Encomenda convertida em Pedido de Venda!' })
+      fetchPreOrders()
+    } catch (err: any) {
+      toast({ title: 'Erro ao converter', description: err.message, variant: 'destructive' })
+    } finally {
+      setConverting(false)
+      setConvertToOrderId(null)
+    }
+  }
 
   const handleNotify = async (po: any) => {
     if (!po.customers?.email) {
@@ -146,6 +219,33 @@ export default function PreOrders() {
         </Button>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="md:col-span-2">
+          <CardContent className="p-6">
+            <h3 className="font-semibold mb-4 flex items-center">
+              <TrendingUp className="w-5 h-5 mr-2 text-primary" /> Demanda de Encomendas (Pendentes)
+            </h3>
+            <div className="space-y-4">
+              {sortedDemand.length > 0 ? (
+                sortedDemand.map(([sku, qty]) => (
+                  <div
+                    key={sku}
+                    className="flex justify-between items-center border-b pb-2 last:border-0"
+                  >
+                    <span className="font-medium text-sm">{sku}</span>
+                    <Badge variant="secondary">{qty} unidades</Badge>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma demanda pendente no momento.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="flex items-center gap-4 bg-background p-4 rounded-lg border">
         <div className="w-[250px]">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -220,14 +320,23 @@ export default function PreOrders() {
                         </Button>
                       )}
                       {(po.status === 'ready' || po.status === 'notified') && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-green-600 hover:bg-green-50"
-                          onClick={() => handleFulfill(po.id)}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-1" /> Entregue
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-green-600 hover:bg-green-50"
+                            onClick={() => handleFulfill(po.id)}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" /> Entregue
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => setConvertToOrderId(po)}
+                          >
+                            <ArrowRightLeft className="w-4 h-4 mr-1" /> Converter
+                          </Button>
+                        </>
                       )}
                     </div>
                   </TableCell>
@@ -243,6 +352,24 @@ export default function PreOrders() {
         onClose={() => setIsNewModalOpen(false)}
         onSuccess={fetchPreOrders}
       />
+
+      <AlertDialog open={!!convertToOrderId} onOpenChange={(o) => !o && setConvertToOrderId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Converter em Pedido de Venda</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso criará um novo pedido de venda para o cliente com este item e marcará a encomenda
+              como entregue.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConvertConfirmed} disabled={converting}>
+              {converting ? 'Convertendo...' : 'Confirmar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
