@@ -20,6 +20,8 @@ import Customers from './pages/Customers'
 import Calculator from './pages/Calculator'
 import Catalog from './pages/Catalog'
 import Finance from './pages/Finance'
+import Suppliers from './pages/Suppliers'
+import Purchases from './pages/Purchases'
 import StorefrontLayout from './pages/storefront/StorefrontLayout'
 import StorefrontIndex from './pages/storefront/StorefrontIndex'
 import StorefrontProduct from './pages/storefront/StorefrontProduct'
@@ -58,6 +60,8 @@ const App = () => (
               <Route path="/calculator" element={<Calculator />} />
               <Route path="/catalog" element={<Catalog />} />
               <Route path="/finance" element={<Finance />} />
+              <Route path="/suppliers" element={<Suppliers />} />
+              <Route path="/purchases" element={<Purchases />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />

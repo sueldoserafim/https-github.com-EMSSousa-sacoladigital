@@ -25,6 +25,8 @@ import {
   Bell,
   User,
   DollarSign,
+  Truck,
+  PackageOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -48,7 +50,9 @@ export function AppLayout() {
   const navItems = [
     { name: 'Painel', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Produtos', href: '/products', icon: ShoppingBag },
-    { name: 'Pedidos', href: '/orders', icon: ShoppingCart },
+    { name: 'Pedidos de Venda', href: '/orders', icon: ShoppingCart },
+    { name: 'Fornecedores', href: '/suppliers', icon: Truck },
+    { name: 'Pedidos de Compra', href: '/purchases', icon: PackageOpen },
     { name: 'Clientes', href: '/customers', icon: Users },
     { name: 'Financeiro', href: '/finance', icon: DollarSign },
     { name: 'Equipe', href: '/team', icon: UserCog },
