@@ -2,6 +2,6 @@
   "_versions": {
     "generate-skus": 2,
     "invite-user": 2,
-    "notify-preorder-ready": 1
+    "notify-preorder-ready": 2
   }
 }
