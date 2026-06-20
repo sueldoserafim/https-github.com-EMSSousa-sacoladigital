@@ -132,11 +132,17 @@ export default function Catalog() {
             scale: 2,
             useCORS: true,
             logging: false,
+            width: 794,
             windowWidth: 794,
             letterRendering: true,
             scrollX: 0,
             scrollY: 0,
             onclone: (clonedDoc: any) => {
+              clonedDoc.documentElement.style.margin = '0'
+              clonedDoc.documentElement.style.padding = '0'
+              clonedDoc.body.style.margin = '0'
+              clonedDoc.body.style.padding = '0'
+
               const el = clonedDoc.getElementById('hidden-catalog-content')
               if (el && el.parentElement) {
                 el.parentElement.style.position = 'static'
@@ -147,7 +153,7 @@ export default function Catalog() {
             },
           },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['css', 'legacy'], avoid: ['.card-wrapper'] },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: '.card-wrapper' },
         })
         .output('blob')
 
