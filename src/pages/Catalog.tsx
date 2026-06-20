@@ -128,8 +128,23 @@ export default function Catalog() {
           margin: 0,
           filename: `catalog_${Date.now()}.pdf`,
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            windowWidth: 794,
+            onclone: (clonedDoc: any) => {
+              const el = clonedDoc.getElementById('hidden-catalog-content')
+              if (el && el.parentElement) {
+                el.parentElement.style.position = 'static'
+                el.parentElement.style.top = 'auto'
+                el.parentElement.style.left = 'auto'
+                el.parentElement.style.transform = 'none'
+              }
+            },
+          },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'], avoid: ['.card-wrapper'] },
         })
         .output('blob')
 
@@ -607,10 +622,11 @@ export default function Catalog() {
       </Dialog>
 
       {/* Hidden container for PDF generation */}
-      <div className="absolute top-0 left-[-9999px] w-[210mm] pointer-events-none z-[-1]">
+      <div className="fixed top-[200vh] left-[200vw] pointer-events-none z-[-1]">
         <div
           id="hidden-catalog-content"
-          className="w-full max-w-[210mm] bg-slate-50 min-h-[297mm] relative flex flex-col font-sans"
+          className="w-[794px] bg-slate-50 min-h-[1123px] relative flex flex-col font-sans"
+          style={{ width: '794px', boxSizing: 'border-box' }}
         >
           {/* Header */}
           <div className="relative w-full shrink-0 flex flex-col">
@@ -672,7 +688,7 @@ export default function Catalog() {
           {/* Content */}
           <div className="px-8 py-10 flex-grow bg-slate-50">
             {format === 'grid' ? (
-              <div className="grid grid-cols-3 gap-6">
+              <div className="flex flex-wrap -mx-3">
                 {catalogProducts.map((p) => {
                   const inStockSkus = p.product_skus?.filter((s: any) => s.stock > 0) || []
                   const isOutOfStock = inStockSkus.length === 0
@@ -692,77 +708,84 @@ export default function Catalog() {
                   const imageUrl = p.product_skus?.[0]?.image_url
 
                   return (
-                    <Card
+                    <div
                       key={p.id}
-                      className="flex flex-col h-full overflow-hidden rounded-[24px] border-slate-100 shadow-sm relative bg-white break-inside-avoid"
+                      className="w-1/3 px-3 mb-6 card-wrapper"
+                      style={{
+                        pageBreakInside: 'avoid',
+                        breakInside: 'avoid',
+                        display: 'block',
+                      }}
                     >
-                      {hasDiscount && showPrice && (
-                        <Badge className="absolute top-3 left-3 z-20 bg-[#be185d] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
-                          -{discountPercent}%
-                        </Badge>
-                      )}
-
-                      {isOutOfStock && (
-                        <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">
-                          <Badge
-                            variant="secondary"
-                            className="bg-slate-900/80 text-white border-none font-semibold px-4 py-1.5 rounded-full"
-                          >
-                            Sem estoque
+                      <Card className="flex flex-col h-full overflow-hidden rounded-[24px] border border-slate-100 shadow-sm relative bg-white">
+                        {hasDiscount && showPrice && (
+                          <Badge className="absolute top-3 left-3 z-20 bg-[#be185d] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
+                            -{discountPercent}%
                           </Badge>
-                        </div>
-                      )}
-
-                      <div className="aspect-[4/5] bg-slate-50 relative overflow-hidden flex items-center justify-center shrink-0">
-                        {imageUrl ? (
-                          <img
-                            src={imageUrl}
-                            alt={p.name}
-                            className="w-full h-full object-cover"
-                            crossOrigin="anonymous"
-                          />
-                        ) : (
-                          <Store className="w-12 h-12 text-slate-300" />
                         )}
-                      </div>
 
-                      <CardContent className="p-5 flex flex-col flex-1 gap-1.5">
-                        <h3 className="font-medium text-slate-800 line-clamp-2 text-base leading-tight">
-                          {p.name}
-                        </h3>
+                        {isOutOfStock && (
+                          <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">
+                            <Badge
+                              variant="secondary"
+                              className="bg-slate-900/80 text-white border-none font-semibold px-4 py-1.5 rounded-full"
+                            >
+                              Sem estoque
+                            </Badge>
+                          </div>
+                        )}
 
-                        <div className="flex items-center gap-0.5 text-yellow-400 mt-1">
-                          {[1, 2, 3, 4, 5].map((i) => (
-                            <Star key={i} className="w-3 h-3 fill-current" />
-                          ))}
-                          <span className="text-xs text-slate-400 ml-1 font-medium">(24)</span>
+                        <div className="aspect-[4/5] bg-slate-50 relative overflow-hidden flex items-center justify-center shrink-0">
+                          {imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                              crossOrigin="anonymous"
+                            />
+                          ) : (
+                            <Store className="w-12 h-12 text-slate-300" />
+                          )}
                         </div>
 
-                        {showPrice && (
-                          <div className="mt-auto pt-3 flex flex-col">
-                            {hasDiscount ? (
-                              <>
-                                <span className="text-xs text-slate-400 line-through font-medium">
-                                  {formatCurrency(originalPrice)}
-                                </span>
+                        <CardContent className="p-5 flex flex-col flex-1 gap-1.5">
+                          <h3 className="font-medium text-slate-800 line-clamp-2 text-base leading-tight">
+                            {p.name}
+                          </h3>
+
+                          <div className="flex items-center gap-0.5 text-yellow-400 mt-1">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                              <Star key={i} className="w-3 h-3 fill-current" />
+                            ))}
+                            <span className="text-xs text-slate-400 ml-1 font-medium">(24)</span>
+                          </div>
+
+                          {showPrice && (
+                            <div className="mt-auto pt-3 flex flex-col">
+                              {hasDiscount ? (
+                                <>
+                                  <span className="text-xs text-slate-400 line-through font-medium">
+                                    {formatCurrency(originalPrice)}
+                                  </span>
+                                  <span className="text-lg font-extrabold text-[#be185d]">
+                                    {formatCurrency(minPrice)}
+                                  </span>
+                                </>
+                              ) : (
                                 <span className="text-lg font-extrabold text-[#be185d]">
                                   {formatCurrency(minPrice)}
                                 </span>
-                              </>
-                            ) : (
-                              <span className="text-lg font-extrabold text-[#be185d]">
-                                {formatCurrency(minPrice)}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
                   )
                 })}
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="flex flex-col">
                 {catalogProducts.map((p) => {
                   const inStockSkus = p.product_skus?.filter((s: any) => s.stock > 0) || []
                   const isOutOfStock = inStockSkus.length === 0
@@ -782,72 +805,75 @@ export default function Catalog() {
                   const imageUrl = p.product_skus?.[0]?.image_url
 
                   return (
-                    <Card
+                    <div
                       key={p.id}
-                      className="flex overflow-hidden rounded-[24px] border-slate-100 shadow-sm relative bg-white break-inside-avoid items-stretch"
+                      className="w-full mb-6 card-wrapper"
+                      style={{ pageBreakInside: 'avoid', breakInside: 'avoid', display: 'block' }}
                     >
-                      {hasDiscount && showPrice && (
-                        <Badge className="absolute top-3 left-3 z-20 bg-[#be185d] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
-                          -{discountPercent}%
-                        </Badge>
-                      )}
-
-                      {isOutOfStock && (
-                        <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">
-                          <Badge
-                            variant="secondary"
-                            className="bg-slate-900/80 text-white border-none font-semibold px-4 py-1.5 rounded-full"
-                          >
-                            Sem estoque
+                      <Card className="flex w-full overflow-hidden rounded-[24px] border border-slate-100 shadow-sm relative bg-white items-stretch">
+                        {hasDiscount && showPrice && (
+                          <Badge className="absolute top-3 left-3 z-20 bg-[#be185d] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
+                            -{discountPercent}%
                           </Badge>
-                        </div>
-                      )}
-
-                      <div className="w-48 h-48 bg-slate-50 relative overflow-hidden flex items-center justify-center shrink-0">
-                        {imageUrl ? (
-                          <img
-                            src={imageUrl}
-                            alt={p.name}
-                            className="w-full h-full object-cover"
-                            crossOrigin="anonymous"
-                          />
-                        ) : (
-                          <Store className="w-12 h-12 text-slate-300" />
                         )}
-                      </div>
 
-                      <CardContent className="p-6 flex flex-col flex-1 justify-center">
-                        <h3 className="font-medium text-slate-800 line-clamp-2 text-xl leading-tight mb-2">
-                          {p.name}
-                        </h3>
+                        {isOutOfStock && (
+                          <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">
+                            <Badge
+                              variant="secondary"
+                              className="bg-slate-900/80 text-white border-none font-semibold px-4 py-1.5 rounded-full"
+                            >
+                              Sem estoque
+                            </Badge>
+                          </div>
+                        )}
 
-                        <div className="flex items-center gap-0.5 text-yellow-400 mb-4">
-                          {[1, 2, 3, 4, 5].map((i) => (
-                            <Star key={i} className="w-4 h-4 fill-current" />
-                          ))}
-                          <span className="text-xs text-slate-400 ml-1 font-medium">(24)</span>
+                        <div className="w-48 h-48 bg-slate-50 relative overflow-hidden flex items-center justify-center shrink-0">
+                          {imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                              crossOrigin="anonymous"
+                            />
+                          ) : (
+                            <Store className="w-12 h-12 text-slate-300" />
+                          )}
                         </div>
 
-                        {showPrice && (
-                          <div className="mt-auto flex items-baseline gap-2">
-                            {hasDiscount ? (
-                              <>
+                        <CardContent className="p-6 flex flex-col flex-1 justify-center">
+                          <h3 className="font-medium text-slate-800 line-clamp-2 text-xl leading-tight mb-2">
+                            {p.name}
+                          </h3>
+
+                          <div className="flex items-center gap-0.5 text-yellow-400 mb-4">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                              <Star key={i} className="w-4 h-4 fill-current" />
+                            ))}
+                            <span className="text-xs text-slate-400 ml-1 font-medium">(24)</span>
+                          </div>
+
+                          {showPrice && (
+                            <div className="mt-auto flex items-baseline gap-2">
+                              {hasDiscount ? (
+                                <>
+                                  <span className="text-2xl font-extrabold text-[#be185d]">
+                                    {formatCurrency(minPrice)}
+                                  </span>
+                                  <span className="text-sm text-slate-400 line-through font-medium">
+                                    {formatCurrency(originalPrice)}
+                                  </span>
+                                </>
+                              ) : (
                                 <span className="text-2xl font-extrabold text-[#be185d]">
                                   {formatCurrency(minPrice)}
                                 </span>
-                                <span className="text-sm text-slate-400 line-through font-medium">
-                                  {formatCurrency(originalPrice)}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-2xl font-extrabold text-slate-900">
-                                {formatCurrency(minPrice)}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
                   )
                 })}
               </div>
@@ -855,7 +881,10 @@ export default function Catalog() {
           </div>
 
           {/* Unified Footer */}
-          <div className="bg-white border-t border-slate-100 pb-12 pt-12 px-8 text-center flex flex-col items-center gap-6 relative shrink-0 break-inside-avoid">
+          <div
+            className="bg-white border-t border-slate-100 pb-12 pt-12 px-8 text-center flex flex-col items-center gap-6 relative shrink-0 card-wrapper"
+            style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+          >
             <div className="w-full grid grid-cols-3 gap-6 text-left z-10 text-sm">
               <div>
                 <h4 className="font-bold text-slate-900 mb-3 tracking-widest text-xs">Contato</h4>
