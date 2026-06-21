@@ -17,9 +17,9 @@ BEGIN
     '0 0 * * *',
     $$
     SELECT net.http_post(
-      url:='https://aktavfdahhbkreecsvpp.supabase.co/functions/v1/segment-customers',
-      headers:='{"Content-Type": "application/json"}'::jsonb,
-      body:='{}'::jsonb
+      url=>'https://aktavfdahhbkreecsvpp.supabase.co/functions/v1/segment-customers',
+      headers=>'{"Content-Type": "application/json"}'::jsonb,
+      body=>'{}'::jsonb
     )
     $$
   );
