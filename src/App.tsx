@@ -25,6 +25,7 @@ import Finance from './pages/Finance'
 import Suppliers from './pages/Suppliers'
 import Purchases from './pages/Purchases'
 import PreOrders from './pages/PreOrders'
+import Sellers from './pages/Sellers'
 import StorefrontLayout from './pages/storefront/StorefrontLayout'
 import StorefrontIndex from './pages/storefront/StorefrontIndex'
 import StorefrontProduct from './pages/storefront/StorefrontProduct'
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="/suppliers" element={<Suppliers />} />
               <Route path="/purchases" element={<Purchases />} />
               <Route path="/pre-orders" element={<PreOrders />} />
+              <Route path="/sellers" element={<Sellers />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />

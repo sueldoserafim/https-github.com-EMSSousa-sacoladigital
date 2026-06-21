@@ -1,5 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { Outlet, useParams, Link, useNavigate, useLocation } from 'react-router-dom'
+import {
+  Outlet,
+  useParams,
+  Link,
+  useNavigate,
+  useLocation,
+  useSearchParams,
+} from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
 import { Store, Plus, Minus, Trash2, Search, MessageCircle, ShoppingBag, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -45,6 +52,7 @@ export default function StorefrontLayout() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const { toast } = useToast()
 
   const [org, setOrg] = useState<any>(null)
@@ -72,6 +80,13 @@ export default function StorefrontLayout() {
   useEffect(() => {
     localStorage.setItem(`cart_${slug}`, JSON.stringify(cart))
   }, [cart, slug])
+
+  useEffect(() => {
+    const ref = searchParams.get('ref')
+    if (ref && slug) {
+      localStorage.setItem(`seller_ref_${slug}`, ref)
+    }
+  }, [searchParams, slug])
 
   useEffect(() => {
     const fetchOrg = async () => {
@@ -184,12 +199,15 @@ export default function StorefrontLayout() {
     if (!cart.length) return
     setCheckoutLoading(true)
     try {
+      const sellerSlug = localStorage.getItem(`seller_ref_${slug}`) || undefined
+
       const { data: orderId, error } = await supabase.rpc('create_checkout_order', {
         p_org_slug: slug,
         p_customer_name: customer.name,
         p_customer_email: customer.email,
         p_customer_phone: customer.phone,
         p_items: cart.map((i) => ({ sku_id: i.sku_id, quantity: i.quantity, price: i.price })),
+        p_seller_slug: sellerSlug,
       })
       if (error) throw error
 
