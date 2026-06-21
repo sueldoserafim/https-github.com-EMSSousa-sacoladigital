@@ -29,6 +29,11 @@ export default function Settings() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
 
+  const [pointsPerCurrency, setPointsPerCurrency] = useState(1)
+  const [discountValuePerPoint, setDiscountValuePerPoint] = useState(0.01)
+  const [maxDiscountPercentage, setMaxDiscountPercentage] = useState(50)
+  const [loadingLoyalty, setLoadingLoyalty] = useState(false)
+
   const handleFileUpload = async (
     file: File,
     folder: 'logos' | 'banners',
@@ -81,6 +86,22 @@ export default function Settings() {
     }
     if (profile) {
       setFullName(profile.full_name || '')
+    }
+
+    if (organization) {
+      const loadLoyalty = async () => {
+        const { data } = await supabase
+          .from('loyalty_configs')
+          .select('*')
+          .eq('organization_id', organization.id)
+          .maybeSingle()
+        if (data) {
+          setPointsPerCurrency(data.points_per_currency)
+          setDiscountValuePerPoint(data.discount_value_per_point)
+          setMaxDiscountPercentage(data.max_discount_percentage)
+        }
+      }
+      loadLoyalty()
     }
   }, [organization, profile])
 
@@ -137,6 +158,47 @@ export default function Settings() {
       })
     } else {
       toast({ title: 'Sucesso', description: 'Perfil atualizado com sucesso.' })
+    }
+  }
+
+  const handleUpdateLoyalty = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!organization) return
+    setLoadingLoyalty(true)
+
+    const { data: existing } = await supabase
+      .from('loyalty_configs')
+      .select('id')
+      .eq('organization_id', organization.id)
+      .maybeSingle()
+
+    let error
+    if (existing) {
+      const res = await supabase
+        .from('loyalty_configs')
+        .update({
+          points_per_currency: pointsPerCurrency,
+          discount_value_per_point: discountValuePerPoint,
+          max_discount_percentage: maxDiscountPercentage,
+        })
+        .eq('id', existing.id)
+      error = res.error
+    } else {
+      const res = await supabase.from('loyalty_configs').insert({
+        organization_id: organization.id,
+        points_per_currency: pointsPerCurrency,
+        discount_value_per_point: discountValuePerPoint,
+        max_discount_percentage: maxDiscountPercentage,
+      })
+      error = res.error
+    }
+
+    setLoadingLoyalty(false)
+
+    if (error) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Sucesso', description: 'Configurações de fidelidade salvas.' })
     }
   }
 
@@ -289,6 +351,59 @@ export default function Settings() {
             <CardFooter>
               <Button type="submit" disabled={loadingProfile}>
                 {loadingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar Perfil
+              </Button>
+            </CardFooter>
+          </Card>
+        </form>
+
+        <form onSubmit={handleUpdateLoyalty}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Fidelidade e Cashback</CardTitle>
+              <CardDescription>Configure o programa de pontos da loja.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ptsPerCurrency">Pontos ganhos por R$ 1 gasto</Label>
+                <Input
+                  id="ptsPerCurrency"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={pointsPerCurrency}
+                  onChange={(e) => setPointsPerCurrency(Number(e.target.value))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="discValue">Valor de desconto por ponto (R$)</Label>
+                <Input
+                  id="discValue"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={discountValuePerPoint}
+                  onChange={(e) => setDiscountValuePerPoint(Number(e.target.value))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxDisc">Limite máximo de desconto por pedido (%)</Label>
+                <Input
+                  id="maxDisc"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  value={maxDiscountPercentage}
+                  onChange={(e) => setMaxDiscountPercentage(Number(e.target.value))}
+                  required
+                />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button type="submit" disabled={loadingLoyalty}>
+                {loadingLoyalty && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar Regras
               </Button>
             </CardFooter>
           </Card>

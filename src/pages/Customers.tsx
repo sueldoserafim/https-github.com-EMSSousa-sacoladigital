@@ -95,6 +95,10 @@ export default function Customers() {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([])
   const [loadingTimeline, setLoadingTimeline] = useState(false)
 
+  // Loyalty
+  const [wallet, setWallet] = useState<any>(null)
+  const [movements, setMovements] = useState<any[]>([])
+
   // Note form
   const [noteContent, setNoteContent] = useState('')
   const [isNotePrivate, setIsNotePrivate] = useState(false)
@@ -199,10 +203,34 @@ export default function Customers() {
     }
   }
 
+  const loadLoyalty = async (customerId: string) => {
+    if (!organization?.id) return
+    const { data: w } = await supabase
+      .from('loyalty_wallets')
+      .select('*')
+      .eq('customer_id', customerId)
+      .eq('organization_id', organization.id)
+      .maybeSingle()
+
+    if (w) {
+      setWallet(w)
+      const { data: m } = await supabase
+        .from('loyalty_point_movements')
+        .select('*, orders(order_number)')
+        .eq('wallet_id', w.id)
+        .order('created_at', { ascending: false })
+      setMovements(m || [])
+    } else {
+      setWallet(null)
+      setMovements([])
+    }
+  }
+
   const handleOpenDetails = (customer: Customer) => {
     setSelectedCustomer(customer)
     setIsDetailsOpen(true)
     loadTimeline(customer.id)
+    loadLoyalty(customer.id)
   }
 
   const handleAddNote = async (e: React.FormEvent) => {
@@ -603,9 +631,10 @@ export default function Customers() {
               </SheetHeader>
 
               <Tabs defaultValue="timeline" className="w-full">
-                <TabsList className="w-full grid grid-cols-2 mb-6">
+                <TabsList className="w-full grid grid-cols-3 mb-6">
                   <TabsTrigger value="timeline">Histórico</TabsTrigger>
                   <TabsTrigger value="crm">CRM & Notas</TabsTrigger>
+                  <TabsTrigger value="loyalty">Fidelidade</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="timeline" className="space-y-4">
@@ -772,6 +801,49 @@ export default function Customers() {
                         Adicionar
                       </Button>
                     </form>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="loyalty" className="space-y-6">
+                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 text-center">
+                    <h3 className="text-sm font-medium text-primary mb-1">Saldo de Pontos</h3>
+                    <div className="text-4xl font-extrabold text-primary">
+                      {wallet?.balance || 0}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2">Histórico de Pontos</h3>
+                    {movements.length === 0 ? (
+                      <div className="text-gray-500 text-sm text-center py-4">
+                        Nenhuma movimentação registrada.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {movements.map((m) => (
+                          <div
+                            key={m.id}
+                            className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100"
+                          >
+                            <div>
+                              <div className="font-medium text-sm">
+                                {m.type === 'earn' ? 'Acúmulo' : 'Resgate'}
+                                {m.orders?.order_number && ` (Pedido ${m.orders.order_number})`}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(m.created_at).toLocaleDateString('pt-BR')}
+                              </div>
+                            </div>
+                            <div
+                              className={`font-bold ${m.type === 'earn' ? 'text-green-600' : 'text-red-600'}`}
+                            >
+                              {m.type === 'earn' ? '+' : '-'}
+                              {m.amount} pts
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>

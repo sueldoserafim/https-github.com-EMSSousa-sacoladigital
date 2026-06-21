@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { Plus, Trash2, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { Switch } from '@/components/ui/switch'
 
 interface NewOrderModalProps {
   open: boolean
@@ -42,6 +43,10 @@ export function NewOrderModal({
   const [customerId, setCustomerId] = useState('')
   const [items, setItems] = useState([{ productId: '', skuId: '', quantity: 1, price: 0 }])
 
+  const [loyaltyConfig, setLoyaltyConfig] = useState<any>(null)
+  const [wallet, setWallet] = useState<any>(null)
+  const [usePoints, setUsePoints] = useState(false)
+
   useEffect(() => {
     if (open) {
       loadData()
@@ -51,15 +56,37 @@ export function NewOrderModal({
   }, [open, organizationId])
 
   const loadData = async () => {
-    const [custRes, prodRes, skuRes] = await Promise.all([
+    const [custRes, prodRes, skuRes, configRes] = await Promise.all([
       supabase.from('customers').select('*').eq('organization_id', organizationId),
       supabase.from('products').select('*').eq('organization_id', organizationId),
       supabase.from('product_skus').select('*').eq('organization_id', organizationId),
+      supabase
+        .from('loyalty_configs')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .maybeSingle(),
     ])
     if (custRes.data) setCustomers(custRes.data)
     if (prodRes.data) setProducts(prodRes.data)
     if (skuRes.data) setSkus(skuRes.data)
+    if (configRes.data) setLoyaltyConfig(configRes.data)
   }
+
+  useEffect(() => {
+    if (customerId) {
+      supabase
+        .from('loyalty_wallets')
+        .select('*')
+        .eq('customer_id', customerId)
+        .eq('organization_id', organizationId)
+        .maybeSingle()
+        .then((res) => {
+          if (res.data) setWallet(res.data)
+          else setWallet(null)
+        })
+      setUsePoints(false)
+    }
+  }, [customerId, organizationId])
 
   const handleProductSelect = (index: number, val: string) => {
     const newItems = [...items]
@@ -81,7 +108,19 @@ export function NewOrderModal({
     setItems(newItems)
   }
 
-  const total = items.reduce((acc, item) => acc + item.price * item.quantity, 0)
+  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0)
+
+  let discountAmount = 0
+  let ptsToUse = 0
+  let finalTotal = subtotal
+
+  if (usePoints && wallet?.balance > 0 && loyaltyConfig) {
+    const maxDiscountAllowed = (subtotal * loyaltyConfig.max_discount_percentage) / 100
+    const maxPointsWeCanUse = maxDiscountAllowed / loyaltyConfig.discount_value_per_point
+    ptsToUse = Math.floor(Math.min(wallet.balance, maxPointsWeCanUse))
+    discountAmount = ptsToUse * loyaltyConfig.discount_value_per_point
+    finalTotal -= discountAmount
+  }
 
   const handleSubmit = async () => {
     if (!customerId)
@@ -104,7 +143,7 @@ export function NewOrderModal({
           organization_id: organizationId,
           customer_id: customerId,
           order_number: orderNumber,
-          total,
+          total: finalTotal,
           status: 'Novo',
         })
         .select()
@@ -122,6 +161,19 @@ export function NewOrderModal({
 
       const { error: itemsErr } = await supabase.from('order_items').insert(orderItems)
       if (itemsErr) throw itemsErr
+
+      if (usePoints && ptsToUse > 0 && wallet) {
+        await supabase.from('loyalty_point_movements').insert({
+          wallet_id: wallet.id,
+          order_id: order.id,
+          amount: ptsToUse,
+          type: 'spend',
+        })
+        await supabase
+          .from('loyalty_wallets')
+          .update({ balance: wallet.balance - ptsToUse })
+          .eq('id', wallet.id)
+      }
 
       toast({ title: 'Sucesso', description: 'Pedido criado com sucesso!' })
       onSuccess()
@@ -260,10 +312,37 @@ export function NewOrderModal({
           </div>
         </div>
 
+        {loyaltyConfig && wallet && wallet.balance > 0 && (
+          <div className="flex items-center justify-between border-t pt-4 mt-4 bg-primary/5 p-4 rounded-xl border border-primary/20">
+            <div>
+              <Label className="text-primary font-semibold cursor-pointer" htmlFor="use-pts">
+                Usar saldo de fidelidade
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Saldo disponível: {wallet.balance} pontos
+              </p>
+            </div>
+            <Switch id="use-pts" checked={usePoints} onCheckedChange={setUsePoints} />
+          </div>
+        )}
+
         <DialogFooter className="flex items-center justify-between sm:justify-between border-t pt-4 mt-2">
-          <div className="text-lg font-bold text-foreground">
-            Total:{' '}
-            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}
+          <div className="text-left space-y-1">
+            {usePoints && discountAmount > 0 && (
+              <div className="text-sm text-green-600 font-medium">
+                Desconto Fidelidade: -
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                  discountAmount,
+                )}{' '}
+                ({ptsToUse} pts)
+              </div>
+            )}
+            <div className="text-lg font-bold text-foreground">
+              Total:{' '}
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                finalTotal,
+              )}
+            </div>
           </div>
           <Button onClick={handleSubmit} disabled={loading} className="rounded-full px-6">
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
