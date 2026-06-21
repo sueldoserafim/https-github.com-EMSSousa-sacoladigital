@@ -15,12 +15,12 @@ BEGIN
   PERFORM cron.schedule(
     'daily-customer-segmentation',
     '0 0 * * *',
-    $$
+    $cron$
     SELECT net.http_post(
       url=>'https://aktavfdahhbkreecsvpp.supabase.co/functions/v1/segment-customers',
       headers=>'{"Content-Type": "application/json"}'::jsonb,
       body=>'{}'::jsonb
     )
-    $$
+    $cron$
   );
 END $$;
