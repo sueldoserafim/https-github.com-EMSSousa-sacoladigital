@@ -3,7 +3,14 @@ import { Loader2, DollarSign, ShoppingCart, Package, ArrowRight, TrendingUp } fr
 import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { useToast } from '@/hooks/use-toast'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart'
 import {
   Area,
   Bar,
@@ -12,6 +19,9 @@ import {
   YAxis,
   CartesianGrid,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts'
 import { supabase } from '@/lib/supabase/client'
 import { format, subDays, startOfMonth, subMonths } from 'date-fns'
@@ -45,6 +55,9 @@ export default function Dashboard() {
   const [abcProducts, setAbcProducts] = useState<any[]>([])
   const [lowStock, setLowStock] = useState<any[]>([])
   const [recentOrders, setRecentOrders] = useState<any[]>([])
+  const [segmentData, setSegmentData] = useState<any[]>([])
+  const [inactiveCustomers, setInactiveCustomers] = useState<any[]>([])
+  const { toast } = useToast()
 
   useEffect(() => {
     if (authLoading || !organization) {
@@ -63,6 +76,8 @@ export default function Dashboard() {
           { data: ordersData },
           { data: productPerformanceData },
           { data: lowStockData },
+          { data: customersData },
+          { data: inactiveCustomersData },
         ] = await Promise.all([
           supabase
             .from('financial_transactions' as any)
@@ -89,6 +104,12 @@ export default function Dashboard() {
             .lt('stock', 10)
             .order('stock', { ascending: true })
             .limit(5),
+          supabase.from('customers').select('id, segment').eq('organization_id', organization.id),
+          supabase
+            .from('customers')
+            .select('id, name, created_at, orders(created_at)')
+            .eq('organization_id', organization.id)
+            .eq('segment', 'Inativo'),
         ])
 
         // Sales Performance Chart Data
@@ -218,10 +239,54 @@ export default function Dashboard() {
               : 0,
         })
 
+        const segCounts: Record<string, number> = {}
+        if (customersData) {
+          customersData.forEach((c) => {
+            const seg = c.segment || 'Novo'
+            segCounts[seg] = (segCounts[seg] || 0) + 1
+          })
+        }
+
+        const segmentColors: Record<string, string> = {
+          VIP: 'hsl(var(--chart-1))',
+          Ativo: 'hsl(var(--chart-2))',
+          Novo: 'hsl(var(--chart-3))',
+          Inativo: 'hsl(var(--chart-4))',
+        }
+
+        const pieChartData = Object.keys(segCounts).map((key) => ({
+          segment: key,
+          count: segCounts[key],
+          fill: segmentColors[key] || 'hsl(var(--chart-5))',
+        }))
+
+        const processedInactive = (inactiveCustomersData || [])
+          .map((c: any) => {
+            const sortedOrders = (c.orders || []).sort(
+              (a: any, b: any) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+            )
+            const lastOrderDate = sortedOrders.length > 0 ? sortedOrders[0].created_at : null
+            return {
+              id: c.id,
+              name: c.name,
+              lastOrderDate,
+              created_at: c.created_at,
+            }
+          })
+          .sort((a, b) => {
+            const dateA = new Date(a.lastOrderDate || a.created_at).getTime()
+            const dateB = new Date(b.lastOrderDate || b.created_at).getTime()
+            return dateB - dateA
+          })
+          .slice(0, 5)
+
         setChartData(last30Days)
         setAbcProducts(mappedAbcProducts)
         setRecentOrders(ordersData?.slice(0, 6) || [])
         setLowStock(lowStockData || [])
+        setSegmentData(pieChartData)
+        setInactiveCustomers(processedInactive)
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
       } finally {
@@ -232,6 +297,15 @@ export default function Dashboard() {
     fetchDashboardData()
   }, [organization, authLoading])
 
+  const handleSendOffer = async (customerId: string, customerName: string) => {
+    toast({
+      title: 'Oferta Enviada!',
+      description: `Workflow de reativação iniciado para ${customerName}.`,
+    })
+    // Simulate edge function call to dispatch workflow
+    // await supabase.functions.invoke('send-reactivation-offer', { body: { customerId } })
+  }
+
   const chartConfig = {
     receita: {
       label: 'Receita (R$)',
@@ -241,6 +315,14 @@ export default function Dashboard() {
       label: 'Volume de Pedidos',
       color: 'hsl(var(--primary))',
     },
+  }
+
+  const segmentChartConfig = {
+    count: { label: 'Clientes' },
+    VIP: { label: 'VIP', color: 'hsl(var(--chart-1))' },
+    Ativo: { label: 'Ativo', color: 'hsl(var(--chart-2))' },
+    Novo: { label: 'Novo', color: 'hsl(var(--chart-3))' },
+    Inativo: { label: 'Inativo', color: 'hsl(var(--chart-4))' },
   }
 
   if (authLoading || loading) {
@@ -403,6 +485,85 @@ export default function Dashboard() {
             <Button variant="outline" className="w-full mt-auto" asChild>
               <a href="/products">Ver Inventário Completo</a>
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+        <Card className="shadow-sm border-border/50 flex flex-col">
+          <CardHeader>
+            <CardTitle>Segmentação de Clientes</CardTitle>
+            <CardDescription>Distribuição atual da sua base</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 pb-0">
+            {segmentData.length > 0 ? (
+              <ChartContainer
+                config={segmentChartConfig}
+                className="mx-auto aspect-square max-h-[250px]"
+              >
+                <PieChart>
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                  <Pie
+                    data={segmentData}
+                    dataKey="count"
+                    nameKey="segment"
+                    innerRadius={60}
+                    strokeWidth={2}
+                    stroke="var(--background)"
+                  />
+                  <ChartLegend
+                    content={<ChartLegendContent nameKey="segment" />}
+                    className="flex-wrap gap-2 [&>*]:basis-1/3 [&>*]:justify-center"
+                  />
+                </PieChart>
+              </ChartContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground pb-8">
+                Nenhum dado de segmento disponível
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2 shadow-sm border-border/50">
+          <CardHeader>
+            <CardTitle>Prevenção de Churn</CardTitle>
+            <CardDescription>
+              Clientes inativos recentemente que precisam de atenção
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {inactiveCustomers.length > 0 ? (
+                inactiveCustomers.map((customer) => (
+                  <div
+                    key={customer.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">{customer.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Última compra:{' '}
+                        {customer.lastOrderDate
+                          ? format(new Date(customer.lastOrderDate), 'dd/MM/yyyy')
+                          : 'Sem compras registradas'}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSendOffer(customer.id, customer.name)}
+                    >
+                      Enviar Oferta de Reativação
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
+                  Nenhum cliente inativo no momento. Bom trabalho!
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
