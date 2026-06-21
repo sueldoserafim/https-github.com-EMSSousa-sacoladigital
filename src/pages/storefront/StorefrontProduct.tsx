@@ -1,9 +1,20 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
-import { ArrowLeft, Store, ShoppingBag, Heart, Star } from 'lucide-react'
+import { ArrowLeft, Store, ShoppingBag, Heart, Star, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
 import { useStorefront } from './StorefrontLayout'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +28,11 @@ export default function StorefrontProduct() {
   const [loading, setLoading] = useState(true)
 
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
+
+  const [isWishlistOpen, setIsWishlistOpen] = useState(false)
+  const [wishlistName, setWishlistName] = useState('')
+  const [wishlistEmail, setWishlistEmail] = useState('')
+  const [wishlistLoading, setWishlistLoading] = useState(false)
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -101,6 +117,31 @@ export default function StorefrontProduct() {
 
   const formatMoney = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
+
+  const handleAddToWishlist = async () => {
+    if (!wishlistName || !wishlistEmail || !matchingSku) return
+    setWishlistLoading(true)
+    try {
+      const { error } = await supabase.rpc('add_to_wishlist', {
+        p_org_id: product.organization_id,
+        p_sku_id: matchingSku.id,
+        p_customer_name: wishlistName,
+        p_customer_email: wishlistEmail,
+      })
+      if (error) throw error
+      toast.success('Adicionado à wishlist', {
+        description: 'Você será avisado quando o produto chegar.',
+      })
+      setIsWishlistOpen(false)
+      setWishlistName('')
+      setWishlistEmail('')
+    } catch (error) {
+      console.error(error)
+      toast.error('Erro', { description: 'Não foi possível adicionar à wishlist.' })
+    } finally {
+      setWishlistLoading(false)
+    }
+  }
 
   return (
     <div className="pb-24 md:pb-0 animate-fade-in-up">
@@ -212,15 +253,27 @@ export default function StorefrontProduct() {
                 </div>
               )}
 
-              <Button
-                size="lg"
-                className="w-full h-14 text-lg rounded-2xl bg-pink-600 hover:bg-pink-700 shadow-xl shadow-pink-600/20 transition-all active:scale-[0.98]"
-                disabled={!isFullySelected || isOutOfStock}
-                onClick={handleAddToCart}
-              >
-                <ShoppingBag className="w-5 h-5 mr-2" />
-                {isOutOfStock ? 'Produto Esgotado' : 'Adicionar à Sacola'}
-              </Button>
+              {isOutOfStock ? (
+                <Button
+                  size="lg"
+                  className="w-full h-14 text-lg rounded-2xl bg-slate-800 hover:bg-slate-900 text-white shadow-xl transition-all"
+                  disabled={!isFullySelected}
+                  onClick={() => setIsWishlistOpen(true)}
+                >
+                  <Bell className="w-5 h-5 mr-2" />
+                  Avisar-me quando chegar
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  className="w-full h-14 text-lg rounded-2xl bg-pink-600 hover:bg-pink-700 shadow-xl shadow-pink-600/20 transition-all active:scale-[0.98]"
+                  disabled={!isFullySelected}
+                  onClick={handleAddToCart}
+                >
+                  <ShoppingBag className="w-5 h-5 mr-2" />
+                  Adicionar à Sacola
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -228,16 +281,63 @@ export default function StorefrontProduct() {
 
       {/* Mobile Sticky CTA */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50 animate-slide-up">
-        <Button
-          size="lg"
-          className="w-full h-14 text-lg rounded-2xl bg-pink-600 hover:bg-pink-700 shadow-xl shadow-pink-600/20 active:scale-[0.98] transition-all"
-          disabled={!isFullySelected || isOutOfStock}
-          onClick={handleAddToCart}
-        >
-          <ShoppingBag className="w-5 h-5 mr-2" />
-          {isOutOfStock ? 'Produto Esgotado' : 'Adicionar à Sacola'}
-        </Button>
+        {isOutOfStock ? (
+          <Button
+            size="lg"
+            className="w-full h-14 text-lg rounded-2xl bg-slate-800 hover:bg-slate-900 text-white shadow-xl transition-all active:scale-[0.98]"
+            disabled={!isFullySelected}
+            onClick={() => setIsWishlistOpen(true)}
+          >
+            <Bell className="w-5 h-5 mr-2" />
+            Avisar-me quando chegar
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            className="w-full h-14 text-lg rounded-2xl bg-pink-600 hover:bg-pink-700 shadow-xl shadow-pink-600/20 active:scale-[0.98] transition-all"
+            disabled={!isFullySelected}
+            onClick={handleAddToCart}
+          >
+            <ShoppingBag className="w-5 h-5 mr-2" />
+            Adicionar à Sacola
+          </Button>
+        )}
       </div>
+
+      <Dialog open={isWishlistOpen} onOpenChange={setIsWishlistOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Avisar sobre disponibilidade</DialogTitle>
+            <DialogDescription>
+              Preencha seus dados para ser notificado assim que este produto voltar ao estoque.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input
+                value={wishlistName}
+                onChange={(e) => setWishlistName(e.target.value)}
+                placeholder="Seu nome"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>E-mail</Label>
+              <Input
+                type="email"
+                value={wishlistEmail}
+                onChange={(e) => setWishlistEmail(e.target.value)}
+                placeholder="seu@email.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button disabled={wishlistLoading} onClick={handleAddToWishlist}>
+              {wishlistLoading ? 'Salvando...' : 'Confirmar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
