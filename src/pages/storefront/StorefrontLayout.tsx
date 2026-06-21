@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { Outlet, useParams, Link, useNavigate } from 'react-router-dom'
+import { Outlet, useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
 import { Store, Plus, Minus, Trash2, Search, MessageCircle, ShoppingBag, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -44,6 +44,7 @@ export function useStorefront() {
 export default function StorefrontLayout() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { toast } = useToast()
 
   const [org, setOrg] = useState<any>(null)
@@ -111,6 +112,26 @@ export default function StorefrontLayout() {
     }
     fetchOrg()
   }, [slug])
+
+  // Track Site Visits
+  useEffect(() => {
+    if (!org) return
+
+    let sessionId = sessionStorage.getItem('storefront_session_id')
+    if (!sessionId) {
+      sessionId = Math.random().toString(36).substring(2) + Date.now().toString(36)
+      sessionStorage.setItem('storefront_session_id', sessionId)
+    }
+
+    supabase
+      .from('site_visits' as any)
+      .insert({
+        organization_id: org.id,
+        path: location.pathname,
+        session_id: sessionId,
+      })
+      .then()
+  }, [org, location.pathname])
 
   const [cartOpen, setCartOpen] = useState(false)
   const [isCheckout, setIsCheckout] = useState(false)

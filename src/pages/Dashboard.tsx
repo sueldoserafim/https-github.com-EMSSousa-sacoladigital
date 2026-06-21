@@ -1,5 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Loader2, DollarSign, ShoppingCart, Package, ArrowRight, TrendingUp } from 'lucide-react'
+import {
+  Loader2,
+  DollarSign,
+  ShoppingCart,
+  Package,
+  ArrowRight,
+  TrendingUp,
+  Activity,
+  AlertTriangle,
+  Info,
+  ShieldAlert,
+} from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -27,7 +38,6 @@ import { supabase } from '@/lib/supabase/client'
 import { format, subDays, startOfMonth, subMonths } from 'date-fns'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { RecentOrdersTable } from '@/components/dashboard/RecentOrdersTable'
-import { LowStockAlerts } from '@/components/dashboard/LowStockAlerts'
 import {
   Table,
   TableBody,
@@ -42,6 +52,8 @@ import { cn } from '@/lib/utils'
 export default function Dashboard() {
   const { organization, profile, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
+  const [alerts, setAlerts] = useState<any[]>([])
+  const [conversionStats, setConversionStats] = useState({ visits: 0, conversionRate: 0 })
   const [stats, setStats] = useState({
     netProfitCurrent: 0,
     netProfitTrend: 0,
@@ -73,15 +85,19 @@ export default function Dashboard() {
         const startOfThisMonth = startOfMonth(now)
         const startOfPrevMonth = startOfMonth(subMonths(now, 1))
 
+        // Refresh alerts dynamically
+        await supabase.rpc('refresh_intelligent_alerts' as any, { p_org_id: organization.id })
+
         const [
           { data: transactionsData },
           { data: ordersData },
           { data: productPerformanceData },
-          { data: lowStockData },
           { data: customersData },
           { data: inactiveCustomersData },
           { data: topAmbassadorsData },
           { data: expiringSoonData },
+          { data: visitsData },
+          { data: alertsData },
         ] = await Promise.all([
           supabase
             .from('financial_transactions' as any)
@@ -101,13 +117,6 @@ export default function Dashboard() {
             .from('vw_product_performance' as any)
             .select('*')
             .eq('organization_id', organization.id),
-          supabase
-            .from('products')
-            .select('id, name, stock')
-            .eq('organization_id', organization.id)
-            .lt('stock', 10)
-            .order('stock', { ascending: true })
-            .limit(5),
           supabase.from('customers').select('id, segment').eq('organization_id', organization.id),
           supabase
             .from('customers')
@@ -125,6 +134,18 @@ export default function Dashboard() {
             .select('*')
             .eq('organization_id', organization.id)
             .limit(5),
+          supabase
+            .from('site_visits' as any)
+            .select('session_id')
+            .eq('organization_id', organization.id)
+            .gte('created_at', startOfThisMonth.toISOString()),
+          supabase
+            .from('intelligent_alerts' as any)
+            .select('id, type, severity, message, created_at, product_id')
+            .eq('organization_id', organization.id)
+            .eq('is_resolved', false)
+            .order('created_at', { ascending: false })
+            .limit(10),
         ])
 
         // Sales Performance Chart Data
@@ -202,6 +223,11 @@ export default function Dashboard() {
             }
           })
         }
+
+        const uniqueVisits = new Set(visitsData?.map((v: any) => v.session_id)).size
+        const conversionRate = uniqueVisits > 0 ? (ordersThisMonth / uniqueVisits) * 100 : 0
+        setConversionStats({ visits: uniqueVisits, conversionRate })
+        setAlerts(alertsData || [])
 
         const netProfitThisMonth = transRevThisMonth - expThisMonth - cogsThisMonth
         const netProfitPrevMonth = transRevPrevMonth - expPrevMonth - cogsPrevMonth
@@ -299,7 +325,6 @@ export default function Dashboard() {
         setChartData(last30Days)
         setAbcProducts(mappedAbcProducts)
         setRecentOrders(ordersData?.slice(0, 6) || [])
-        setLowStock(lowStockData || [])
         setSegmentData(pieChartData)
         setInactiveCustomers(processedInactive)
         setAmbassadors(topAmbassadorsData || [])
@@ -379,9 +404,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:gap-6 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:gap-6 grid-cols-2 lg:grid-cols-5">
         <MetricCard
-          title="Lucro Líquido (Mês Atual)"
+          title="Lucro Líquido"
           value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
             stats.netProfitCurrent,
           )}
@@ -405,11 +430,17 @@ export default function Dashboard() {
           icon={<TrendingUp className="w-5 h-5 text-green-500" />}
         />
         <MetricCard
-          title="Pedidos Concluídos"
+          title="Pedidos"
           value={stats.ordersCurrent}
           trend={stats.ordersTrend}
-          subtitle="vs. mês passado"
+          subtitle="Mês atual"
           icon={<ShoppingCart className="w-5 h-5 text-orange-500" />}
+        />
+        <MetricCard
+          title="Taxa de Conversão"
+          value={`${conversionStats.conversionRate.toFixed(1)}%`}
+          subtitle={`${conversionStats.visits} visitas`}
+          icon={<Activity className="w-5 h-5 text-purple-500" />}
         />
       </div>
 
@@ -494,19 +525,91 @@ export default function Dashboard() {
 
         <Card className="shadow-sm border-border/50 flex flex-col">
           <CardHeader>
-            <CardTitle>Alertas de Estoque</CardTitle>
-            <CardDescription>Produtos com menos de 10 unidades</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-primary" /> Alertas Inteligentes
+            </CardTitle>
+            <CardDescription>Estoque e Produtos Estagnados</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col">
-            <LowStockAlerts items={lowStock} />
-            <Button variant="outline" className="w-full mt-auto" asChild>
-              <a href="/products">Ver Inventário Completo</a>
-            </Button>
+          <CardContent className="flex-1 flex flex-col overflow-y-auto max-h-[350px] pr-2">
+            {!alerts || alerts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center p-6 bg-muted/30 rounded-lg border border-dashed h-full">
+                <ShieldAlert className="w-8 h-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">Tudo certo com seus produtos.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {alerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className={cn(
+                      'flex items-start p-3 rounded-lg border text-sm gap-3',
+                      alert.severity === 'critical' &&
+                        'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/30 text-red-900 dark:text-red-300',
+                      alert.severity === 'warning' &&
+                        'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/30 text-orange-900 dark:text-orange-300',
+                      alert.severity === 'info' &&
+                        'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/30 text-blue-900 dark:text-blue-300',
+                    )}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      {alert.severity === 'critical' && (
+                        <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                      )}
+                      {alert.severity === 'warning' && (
+                        <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                      )}
+                      {alert.severity === 'info' && (
+                        <Info className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      )}
+                    </div>
+                    <p className="leading-tight flex-1">{alert.message}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+        <Card className="shadow-sm border-border/50">
+          <CardHeader>
+            <CardTitle>Funil de Conversão (Mês Atual)</CardTitle>
+            <CardDescription>Acompanhe a eficiência da sua vitrine pública</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6 pt-4">
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between text-sm font-medium">
+                  <span className="text-muted-foreground">Visitas Únicas</span>
+                  <span className="font-bold">{conversionStats.visits}</span>
+                </div>
+                <div className="h-6 w-full bg-secondary rounded-md overflow-hidden relative">
+                  <div className="h-full bg-blue-500 transition-all" style={{ width: '100%' }} />
+                  <div className="absolute inset-0 flex items-center px-3 text-xs font-bold text-white drop-shadow-md">
+                    100%
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between text-sm font-medium">
+                  <span className="text-muted-foreground">Pedidos Convertidos</span>
+                  <span className="font-bold">{stats.ordersCurrent}</span>
+                </div>
+                <div className="h-6 w-full bg-secondary rounded-md overflow-hidden relative">
+                  <div
+                    className="h-full bg-green-500 transition-all"
+                    style={{ width: `${conversionStats.conversionRate}%` }}
+                  />
+                  <div className="absolute inset-0 flex items-center px-3 text-xs font-bold text-white drop-shadow-md">
+                    {conversionStats.conversionRate.toFixed(1)}%
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <Card className="shadow-sm border-border/50">
           <CardHeader>
             <CardTitle>Embaixadores da Marca</CardTitle>
