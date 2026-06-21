@@ -27,6 +27,7 @@ import Suppliers from './pages/Suppliers'
 import Purchases from './pages/Purchases'
 import PreOrders from './pages/PreOrders'
 import Sellers from './pages/Sellers'
+import GroupBuying from './pages/GroupBuying'
 import StorefrontLayout from './pages/storefront/StorefrontLayout'
 import StorefrontIndex from './pages/storefront/StorefrontIndex'
 import StorefrontProduct from './pages/storefront/StorefrontProduct'
@@ -72,6 +73,7 @@ const App = () => (
               <Route path="/pre-orders" element={<PreOrders />} />
               <Route path="/sellers" element={<Sellers />} />
               <Route path="/commissions" element={<Commissions />} />
+              <Route path="/group-buying" element={<GroupBuying />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
