@@ -29,8 +29,31 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { Search, Plus, Edit2, Trash2 } from 'lucide-react'
+import {
+  Search,
+  Plus,
+  Edit2,
+  Trash2,
+  Eye,
+  Calendar,
+  Tag,
+  FileText,
+  ShoppingBag,
+  Loader2,
+  RefreshCw,
+} from 'lucide-react'
 import { Label } from '@/components/ui/label'
 
 interface Customer {
@@ -39,15 +62,25 @@ interface Customer {
   email: string | null
   phone: string | null
   created_at: string
+  segment?: string
+  customer_tags?: { id: string; name: string }[]
+}
+
+interface TimelineEvent {
+  id: string
+  type: 'order' | 'note' | 'tag'
+  date: Date
+  data: any
 }
 
 export default function Customers() {
-  const { organization } = useAuth()
+  const { organization, profile } = useAuth()
   const { toast } = useToast()
 
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [isSegmenting, setIsSegmenting] = useState(false)
 
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
@@ -57,13 +90,27 @@ export default function Customers() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [timeline, setTimeline] = useState<TimelineEvent[]>([])
+  const [loadingTimeline, setLoadingTimeline] = useState(false)
+
+  // Note form
+  const [noteContent, setNoteContent] = useState('')
+  const [isNotePrivate, setIsNotePrivate] = useState(false)
+  const [isAddingNote, setIsAddingNote] = useState(false)
+
+  // Tag form
+  const [newTag, setNewTag] = useState('')
+  const [isAddingTag, setIsAddingTag] = useState(false)
+
   const fetchCustomers = async () => {
     if (!organization?.id) return
     try {
       setLoading(true)
       const { data, error } = await supabase
         .from('customers')
-        .select('*')
+        .select('*, customer_tags(id, name)')
         .eq('organization_id', organization.id)
         .order('created_at', { ascending: false })
 
@@ -83,6 +130,156 @@ export default function Customers() {
   useEffect(() => {
     fetchCustomers()
   }, [organization?.id])
+
+  const loadTimeline = async (customerId: string) => {
+    setLoadingTimeline(true)
+    try {
+      const events: TimelineEvent[] = []
+
+      // Orders
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('id, order_number, total, created_at, status')
+        .eq('customer_id', customerId)
+
+      if (orders) {
+        orders.forEach((o) => {
+          events.push({
+            id: o.id,
+            type: 'order',
+            date: new Date(o.created_at),
+            data: o,
+          })
+        })
+      }
+
+      // Notes
+      const { data: notes } = await supabase
+        .from('customer_notes')
+        .select('id, content, is_private, created_at, author_id, profiles(full_name)')
+        .eq('customer_id', customerId)
+
+      if (notes) {
+        notes.forEach((n) => {
+          events.push({
+            id: n.id,
+            type: 'note',
+            date: new Date(n.created_at),
+            data: {
+              ...n,
+              author_name: n.profiles?.full_name || 'Usuário Desconhecido',
+            },
+          })
+        })
+      }
+
+      // Tags
+      const { data: tags } = await supabase
+        .from('customer_tags')
+        .select('id, name, created_at')
+        .eq('customer_id', customerId)
+
+      if (tags) {
+        tags.forEach((t) => {
+          events.push({
+            id: t.id,
+            type: 'tag',
+            date: new Date(t.created_at),
+            data: t,
+          })
+        })
+      }
+
+      events.sort((a, b) => b.date.getTime() - a.date.getTime())
+      setTimeline(events)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingTimeline(false)
+    }
+  }
+
+  const handleOpenDetails = (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setIsDetailsOpen(true)
+    loadTimeline(customer.id)
+  }
+
+  const handleAddNote = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedCustomer || !organization?.id || !profile?.id || !noteContent.trim()) return
+
+    setIsAddingNote(true)
+    try {
+      const { error } = await supabase.from('customer_notes').insert({
+        customer_id: selectedCustomer.id,
+        organization_id: organization.id,
+        author_id: profile.id,
+        content: noteContent,
+        is_private: isNotePrivate,
+      })
+      if (error) throw error
+
+      toast({ title: 'Nota adicionada com sucesso' })
+      setNoteContent('')
+      setIsNotePrivate(false)
+      loadTimeline(selectedCustomer.id)
+    } catch (err: any) {
+      toast({ title: 'Erro ao adicionar nota', description: err.message, variant: 'destructive' })
+    } finally {
+      setIsAddingNote(false)
+    }
+  }
+
+  const handleAddTag = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedCustomer || !organization?.id || !newTag.trim()) return
+
+    setIsAddingTag(true)
+    try {
+      const { error } = await supabase.from('customer_tags').insert({
+        customer_id: selectedCustomer.id,
+        organization_id: organization.id,
+        name: newTag.trim(),
+      })
+      if (error) throw error
+
+      toast({ title: 'Tag adicionada com sucesso' })
+      setNewTag('')
+      loadTimeline(selectedCustomer.id)
+      fetchCustomers() // Refresh list to show tag
+    } catch (err: any) {
+      toast({ title: 'Erro ao adicionar tag', description: err.message, variant: 'destructive' })
+    } finally {
+      setIsAddingTag(false)
+    }
+  }
+
+  const handleRemoveTag = async (tagId: string) => {
+    try {
+      const { error } = await supabase.from('customer_tags').delete().eq('id', tagId)
+      if (error) throw error
+      toast({ title: 'Tag removida' })
+      if (selectedCustomer) loadTimeline(selectedCustomer.id)
+      fetchCustomers()
+    } catch (err: any) {
+      toast({ title: 'Erro ao remover', variant: 'destructive' })
+    }
+  }
+
+  const triggerSegmentation = async () => {
+    setIsSegmenting(true)
+    try {
+      const { error } = await supabase.functions.invoke('segment-customers')
+      if (error) throw error
+      toast({ title: 'Segmentação atualizada com sucesso!' })
+      fetchCustomers()
+    } catch (err: any) {
+      toast({ title: 'Erro na segmentação', description: err.message, variant: 'destructive' })
+    } finally {
+      setIsSegmenting(false)
+    }
+  }
 
   const filteredCustomers = customers.filter(
     (c) =>
@@ -165,17 +362,42 @@ export default function Customers() {
     }
   }
 
+  const getSegmentColor = (segment?: string) => {
+    switch (segment) {
+      case 'VIP':
+        return 'bg-purple-100 text-purple-800 border-purple-200'
+      case 'Ativo':
+        return 'bg-green-100 text-green-800 border-green-200'
+      case 'Inativo':
+        return 'bg-red-100 text-red-800 border-red-200'
+      case 'Novo':
+        return 'bg-blue-100 text-blue-800 border-blue-200'
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
-          <p className="text-gray-500 mt-1">Gerencie a base de clientes da sua loja.</p>
+          <h1 className="text-3xl font-bold tracking-tight">CRM & Clientes</h1>
+          <p className="text-gray-500 mt-1">Gerencie clientes, notas e histórico de interações.</p>
         </div>
-        <Button onClick={() => handleOpenModal()} className="w-full sm:w-auto">
-          <Plus className="w-4 h-4 mr-2" />
-          Adicionar Cliente
-        </Button>
+        <div className="flex w-full sm:w-auto gap-2">
+          <Button variant="outline" onClick={triggerSegmentation} disabled={isSegmenting}>
+            {isSegmenting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            Atualizar Segmentos
+          </Button>
+          <Button onClick={() => handleOpenModal()} className="flex-1 sm:flex-none">
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -195,9 +417,9 @@ export default function Customers() {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Telefone</TableHead>
-              <TableHead>Data de Cadastro</TableHead>
+              <TableHead>Contato</TableHead>
+              <TableHead>Segmento</TableHead>
+              <TableHead>Tags</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -205,6 +427,7 @@ export default function Customers() {
             {loading ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
                   Carregando...
                 </TableCell>
               </TableRow>
@@ -218,12 +441,45 @@ export default function Customers() {
               filteredCustomers.map((customer) => (
                 <TableRow key={customer.id}>
                   <TableCell className="font-medium">{customer.name}</TableCell>
-                  <TableCell>{customer.email || '-'}</TableCell>
-                  <TableCell>{customer.phone || '-'}</TableCell>
-                  <TableCell>{new Date(customer.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell>
+                    <div className="text-sm">{customer.email || '-'}</div>
+                    <div className="text-sm text-gray-500">{customer.phone || '-'}</div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={getSegmentColor(customer.segment)}>
+                      {customer.segment || 'Novo'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {customer.customer_tags?.slice(0, 3).map((tag) => (
+                        <Badge key={tag.id} variant="secondary" className="text-xs">
+                          {tag.name}
+                        </Badge>
+                      ))}
+                      {(customer.customer_tags?.length || 0) > 3 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{customer.customer_tags!.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenModal(customer)}>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenDetails(customer)}
+                        title="Ver CRM"
+                      >
+                        <Eye className="w-4 h-4 text-blue-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenModal(customer)}
+                        title="Editar"
+                      >
                         <Edit2 className="w-4 h-4" />
                       </Button>
                       <Button
@@ -231,6 +487,7 @@ export default function Customers() {
                         size="icon"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => setDeleteId(customer.id)}
+                        title="Excluir"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -304,7 +561,8 @@ export default function Customers() {
           <AlertDialogHeader>
             <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Isso excluirá permanentemente o cliente.
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente o cliente e todo seu
+              histórico.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -319,6 +577,208 @@ export default function Customers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* CRM Details Sheet */}
+      <Sheet open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <SheetContent className="sm:max-w-xl w-full overflow-y-auto">
+          {selectedCustomer && (
+            <>
+              <SheetHeader className="mb-6 border-b pb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <SheetTitle className="text-2xl">{selectedCustomer.name}</SheetTitle>
+                  <Badge variant="outline" className={getSegmentColor(selectedCustomer.segment)}>
+                    {selectedCustomer.segment || 'Novo'}
+                  </Badge>
+                </div>
+                <SheetDescription className="space-y-1">
+                  <div className="flex flex-col gap-1 text-gray-600">
+                    <span>Email: {selectedCustomer.email || 'Não informado'}</span>
+                    <span>Telefone: {selectedCustomer.phone || 'Não informado'}</span>
+                    <span>
+                      Cliente desde:{' '}
+                      {new Date(selectedCustomer.created_at).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                </SheetDescription>
+              </SheetHeader>
+
+              <Tabs defaultValue="timeline" className="w-full">
+                <TabsList className="w-full grid grid-cols-2 mb-6">
+                  <TabsTrigger value="timeline">Histórico</TabsTrigger>
+                  <TabsTrigger value="crm">CRM & Notas</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="timeline" className="space-y-4">
+                  {loadingTimeline ? (
+                    <div className="py-8 text-center text-gray-500">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+                      Carregando histórico...
+                    </div>
+                  ) : timeline.length === 0 ? (
+                    <div className="py-8 text-center text-gray-500">Nenhum evento registrado.</div>
+                  ) : (
+                    <div className="relative border-l border-gray-200 ml-3 pl-6 space-y-6">
+                      {timeline.map((event) => (
+                        <div key={`${event.type}-${event.id}`} className="relative">
+                          <span className="absolute -left-10 bg-white p-1 rounded-full border border-gray-200">
+                            {event.type === 'order' && (
+                              <ShoppingBag className="w-4 h-4 text-blue-500" />
+                            )}
+                            {event.type === 'note' && (
+                              <FileText className="w-4 h-4 text-amber-500" />
+                            )}
+                            {event.type === 'tag' && <Tag className="w-4 h-4 text-green-500" />}
+                          </span>
+                          <div className="bg-gray-50 rounded-lg p-4 text-sm border border-gray-100">
+                            <div className="flex items-center justify-between mb-2 text-xs text-gray-500">
+                              <span className="font-medium flex items-center gap-1">
+                                {event.type === 'order' && 'Novo Pedido'}
+                                {event.type === 'note' && 'Nota Adicionada'}
+                                {event.type === 'tag' && 'Tag Atribuída'}
+                                {event.type === 'note' && event.data.is_private && (
+                                  <Badge variant="secondary" className="ml-2 text-[10px]">
+                                    Privada
+                                  </Badge>
+                                )}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {event.date.toLocaleDateString('pt-BR')} às{' '}
+                                {event.date.toLocaleTimeString('pt-BR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            <div className="text-gray-800">
+                              {event.type === 'order' && (
+                                <div>
+                                  <p>
+                                    Pedido{' '}
+                                    <span className="font-semibold">{event.data.order_number}</span>{' '}
+                                    criado.
+                                  </p>
+                                  <p className="mt-1">
+                                    Valor: R$ {Number(event.data.total).toFixed(2)} | Status:{' '}
+                                    {event.data.status}
+                                  </p>
+                                </div>
+                              )}
+                              {event.type === 'note' && (
+                                <div>
+                                  <p className="whitespace-pre-wrap">{event.data.content}</p>
+                                  <p className="text-xs text-gray-500 mt-2">
+                                    Por: {event.data.author_name}
+                                  </p>
+                                </div>
+                              )}
+                              {event.type === 'tag' && (
+                                <p>
+                                  A tag{' '}
+                                  <Badge variant="secondary" className="mx-1">
+                                    {event.data.name}
+                                  </Badge>{' '}
+                                  foi adicionada.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="crm" className="space-y-8">
+                  {/* Notes Form */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2">Adicionar Nota</h3>
+                    <form
+                      onSubmit={handleAddNote}
+                      className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-100"
+                    >
+                      <div className="space-y-2">
+                        <Label>Nota</Label>
+                        <Textarea
+                          placeholder="Digite os detalhes da interação..."
+                          value={noteContent}
+                          onChange={(e) => setNoteContent(e.target.value)}
+                          className="bg-white min-h-[100px]"
+                          required
+                        />
+                      </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="private-note"
+                            checked={isNotePrivate}
+                            onCheckedChange={setIsNotePrivate}
+                          />
+                          <Label
+                            htmlFor="private-note"
+                            className="text-sm cursor-pointer flex flex-col"
+                          >
+                            <span>Nota Privada</span>
+                            <span className="font-normal text-xs text-gray-500">
+                              Visível apenas para administradores.
+                            </span>
+                          </Label>
+                        </div>
+                        <Button type="submit" disabled={isAddingNote || !noteContent.trim()}>
+                          {isAddingNote ? 'Salvando...' : 'Salvar Nota'}
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Tags Form */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2">Gerenciar Tags</h3>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {timeline.filter((t) => t.type === 'tag').length === 0 && (
+                        <span className="text-sm text-gray-500">Nenhuma tag atribuída.</span>
+                      )}
+                      {timeline
+                        .filter((t) => t.type === 'tag')
+                        .map((tagEvent) => (
+                          <Badge
+                            key={tagEvent.id}
+                            variant="secondary"
+                            className="pl-2 pr-1 py-1 flex items-center gap-1 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100"
+                          >
+                            {tagEvent.data.name}
+                            <button
+                              onClick={() => handleRemoveTag(tagEvent.id)}
+                              className="text-blue-400 hover:text-blue-900 rounded-full p-0.5"
+                              title="Remover tag"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                    </div>
+                    <form onSubmit={handleAddTag} className="flex gap-2">
+                      <Input
+                        placeholder="Nova tag..."
+                        value={newTag}
+                        onChange={(e) => setNewTag(e.target.value)}
+                        className="max-w-[200px]"
+                      />
+                      <Button
+                        type="submit"
+                        variant="secondary"
+                        disabled={isAddingTag || !newTag.trim()}
+                      >
+                        Adicionar
+                      </Button>
+                    </form>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
