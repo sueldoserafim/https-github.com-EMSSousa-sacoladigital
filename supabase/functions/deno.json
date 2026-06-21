@@ -3,6 +3,7 @@
     "generate-skus": 2,
     "invite-user": 2,
     "notify-preorder-ready": 2,
-    "segment-customers": 1
+    "segment-customers": 1,
+    "notify-back-in-stock": 1
   }
 }
