@@ -5,11 +5,31 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Store, Heart, Star } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogHeader,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { toast } from 'sonner'
 import { useStorefront } from './StorefrontLayout'
 import { cn } from '@/lib/utils'
 
-function ProductModalContent({ product, onClose }: { product: any; onClose: () => void }) {
+function ProductModalContent({
+  product,
+  onClose,
+  onFavorite,
+  isFavorited,
+}: {
+  product: any
+  onClose: () => void
+  onFavorite: (skuId: string, productId: string) => void
+  isFavorited: boolean
+}) {
   const { addToCart } = useStorefront()
   const [attributes, setAttributes] = useState<any[]>([])
   const [skus, setSkus] = useState<any[]>([])
@@ -193,22 +213,34 @@ function ProductModalContent({ product, onClose }: { product: any; onClose: () =
         )}
 
         <div className="flex gap-3 mt-auto pt-2">
-          <Button
-            className="flex-1 bg-[#be185d] hover:bg-[#9d124b] text-white rounded-2xl h-14 text-base font-bold shadow-lg shadow-[#be185d]/30 transition-transform active:scale-[0.98]"
-            disabled={!isFullySelected || isOutOfStock}
-            onClick={handleAddToCart}
-          >
-            {isOutOfStock
-              ? 'Esgotado'
-              : !isFullySelected
-                ? 'Selecione um tamanho'
-                : 'Adicionar à sacola'}
-          </Button>
+          {isOutOfStock ? (
+            <Button
+              className="flex-1 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl h-14 text-base font-bold shadow-lg transition-transform active:scale-[0.98]"
+              disabled={!isFullySelected}
+              onClick={() => matchingSku && onFavorite(matchingSku.id, product.id)}
+            >
+              Avisar-me quando chegar
+            </Button>
+          ) : (
+            <Button
+              className="flex-1 bg-[#be185d] hover:bg-[#9d124b] text-white rounded-2xl h-14 text-base font-bold shadow-lg shadow-[#be185d]/30 transition-transform active:scale-[0.98]"
+              disabled={!isFullySelected}
+              onClick={handleAddToCart}
+            >
+              {!isFullySelected ? 'Selecione um tamanho' : 'Adicionar à sacola'}
+            </Button>
+          )}
           <Button
             variant="outline"
             className="w-14 h-14 rounded-2xl border-slate-200 hover:bg-slate-50 transition-colors"
+            onClick={() => matchingSku && onFavorite(matchingSku.id, product.id)}
           >
-            <Heart className="w-6 h-6 text-slate-400" />
+            <Heart
+              className={cn(
+                'w-6 h-6 transition-colors',
+                isFavorited ? 'fill-[#be185d] text-[#be185d]' : 'text-slate-400',
+              )}
+            />
           </Button>
         </div>
       </div>
@@ -223,6 +255,83 @@ export default function StorefrontIndex() {
   const [loading, setLoading] = useState(true)
 
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
+
+  const [wishlistName, setWishlistName] = useState(
+    () => localStorage.getItem('storefront_customer_name') || '',
+  )
+  const [wishlistEmail, setWishlistEmail] = useState(
+    () => localStorage.getItem('storefront_customer_email') || '',
+  )
+  const [wishlistLoading, setWishlistLoading] = useState(false)
+  const [wishlistModalOpen, setWishlistModalOpen] = useState(false)
+  const [wishlistPendingSku, setWishlistPendingSku] = useState<{
+    sku_id: string
+    product_id: string
+  } | null>(null)
+  const [favoritedProducts, setFavoritedProducts] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('storefront_favorites')
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch {
+      return new Set()
+    }
+  })
+
+  const addToFavoritesState = (productId: string) => {
+    setFavoritedProducts((prev) => {
+      const next = new Set(prev)
+      next.add(productId)
+      localStorage.setItem('storefront_favorites', JSON.stringify(Array.from(next)))
+      return next
+    })
+  }
+
+  const handleFavoriteAction = async (skuId: string, productId: string) => {
+    if (wishlistName && wishlistEmail) {
+      await submitWishlist(skuId, productId, wishlistName, wishlistEmail)
+    } else {
+      setWishlistPendingSku({ sku_id: skuId, product_id: productId })
+      setWishlistModalOpen(true)
+    }
+  }
+
+  const submitWishlist = async (skuId: string, productId: string, name: string, email: string) => {
+    setWishlistLoading(true)
+    try {
+      const { error } = await supabase.rpc('add_to_wishlist', {
+        p_org_id: org.id,
+        p_sku_id: skuId,
+        p_customer_name: name,
+        p_customer_email: email,
+      })
+      if (error) throw error
+
+      localStorage.setItem('storefront_customer_name', name)
+      localStorage.setItem('storefront_customer_email', email)
+      addToFavoritesState(productId)
+
+      toast.success('Adicionado à sua lista de desejos!', {
+        description: 'Você será avisado quando o produto chegar.',
+      })
+      setWishlistModalOpen(false)
+      setWishlistPendingSku(null)
+    } catch (error) {
+      console.error(error)
+      toast.error('Erro', { description: 'Não foi possível adicionar à lista de desejos.' })
+    } finally {
+      setWishlistLoading(false)
+    }
+  }
+
+  const onWishlistModalSubmit = () => {
+    if (!wishlistPendingSku || !wishlistName || !wishlistEmail) return
+    submitWishlist(
+      wishlistPendingSku.sku_id,
+      wishlistPendingSku.product_id,
+      wishlistName,
+      wishlistEmail,
+    )
+  }
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -307,10 +416,19 @@ export default function StorefrontIndex() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
+                      const firstSkuId = product.product_skus[0]?.id
+                      if (firstSkuId) {
+                        handleFavoriteAction(firstSkuId, product.id)
+                      }
                     }}
                     className="absolute top-3 right-3 z-20 p-2 bg-white/90 backdrop-blur-sm rounded-full text-slate-300 hover:text-[#be185d] hover:bg-white transition-colors shadow-sm"
                   >
-                    <Heart className="w-4 h-4" />
+                    <Heart
+                      className={cn(
+                        'w-4 h-4 transition-colors',
+                        favoritedProducts.has(product.id) ? 'fill-[#be185d] text-[#be185d]' : '',
+                      )}
+                    />
                   </button>
 
                   {hasDiscount && (
@@ -396,8 +514,48 @@ export default function StorefrontIndex() {
             <ProductModalContent
               product={selectedProduct}
               onClose={() => setSelectedProduct(null)}
+              onFavorite={handleFavoriteAction}
+              isFavorited={favoritedProducts.has(selectedProduct.id)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={wishlistModalOpen} onOpenChange={setWishlistModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adicionar à Lista de Desejos</DialogTitle>
+            <DialogDescription>
+              Preencha seus dados para ser notificado assim que este produto voltar ao estoque.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input
+                value={wishlistName}
+                onChange={(e) => setWishlistName(e.target.value)}
+                placeholder="Seu nome"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>E-mail</Label>
+              <Input
+                type="email"
+                value={wishlistEmail}
+                onChange={(e) => setWishlistEmail(e.target.value)}
+                placeholder="seu@email.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={wishlistLoading || !wishlistName || !wishlistEmail}
+              onClick={onWishlistModalSubmit}
+            >
+              {wishlistLoading ? 'Salvando...' : 'Confirmar'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

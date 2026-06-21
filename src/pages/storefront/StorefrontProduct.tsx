@@ -30,9 +30,40 @@ export default function StorefrontProduct() {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
 
   const [isWishlistOpen, setIsWishlistOpen] = useState(false)
-  const [wishlistName, setWishlistName] = useState('')
-  const [wishlistEmail, setWishlistEmail] = useState('')
+  const [wishlistName, setWishlistName] = useState(
+    () => localStorage.getItem('storefront_customer_name') || '',
+  )
+  const [wishlistEmail, setWishlistEmail] = useState(
+    () => localStorage.getItem('storefront_customer_email') || '',
+  )
   const [wishlistLoading, setWishlistLoading] = useState(false)
+
+  const [favoritedProducts, setFavoritedProducts] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('storefront_favorites')
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch {
+      return new Set()
+    }
+  })
+
+  const addToFavoritesState = (prodId: string) => {
+    setFavoritedProducts((prev) => {
+      const next = new Set(prev)
+      next.add(prodId)
+      localStorage.setItem('storefront_favorites', JSON.stringify(Array.from(next)))
+      return next
+    })
+  }
+
+  const handleFavoriteAction = () => {
+    if (!matchingSku) return
+    if (wishlistName && wishlistEmail) {
+      handleAddToWishlist(wishlistName, wishlistEmail)
+    } else {
+      setIsWishlistOpen(true)
+    }
+  }
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -118,26 +149,31 @@ export default function StorefrontProduct() {
   const formatMoney = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
 
-  const handleAddToWishlist = async () => {
-    if (!wishlistName || !wishlistEmail || !matchingSku) return
+  const handleAddToWishlist = async (nameOverride?: string, emailOverride?: string) => {
+    const name = nameOverride || wishlistName
+    const email = emailOverride || wishlistEmail
+    if (!name || !email || !matchingSku) return
     setWishlistLoading(true)
     try {
       const { error } = await supabase.rpc('add_to_wishlist', {
         p_org_id: product.organization_id,
         p_sku_id: matchingSku.id,
-        p_customer_name: wishlistName,
-        p_customer_email: wishlistEmail,
+        p_customer_name: name,
+        p_customer_email: email,
       })
       if (error) throw error
-      toast.success('Adicionado à wishlist', {
+
+      localStorage.setItem('storefront_customer_name', name)
+      localStorage.setItem('storefront_customer_email', email)
+      addToFavoritesState(product.id)
+
+      toast.success('Adicionado à sua lista de desejos!', {
         description: 'Você será avisado quando o produto chegar.',
       })
       setIsWishlistOpen(false)
-      setWishlistName('')
-      setWishlistEmail('')
     } catch (error) {
       console.error(error)
-      toast.error('Erro', { description: 'Não foi possível adicionar à wishlist.' })
+      toast.error('Erro', { description: 'Não foi possível adicionar à lista de desejos.' })
     } finally {
       setWishlistLoading(false)
     }
@@ -155,8 +191,16 @@ export default function StorefrontProduct() {
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <button className="absolute top-4 right-4 z-10 p-2.5 bg-white/80 backdrop-blur-md rounded-full shadow-sm hover:bg-white hover:text-pink-600 text-slate-400 transition-colors">
-              <Heart className="w-5 h-5" />
+            <button
+              onClick={handleFavoriteAction}
+              className="absolute top-4 right-4 z-10 p-2.5 bg-white/80 backdrop-blur-md rounded-full shadow-sm hover:bg-white hover:text-pink-600 text-slate-400 transition-colors"
+            >
+              <Heart
+                className={cn(
+                  'w-5 h-5 transition-colors',
+                  favoritedProducts.has(product?.id) ? 'fill-pink-600 text-pink-600' : '',
+                )}
+              />
             </button>
 
             {matchingSku?.image_url ? (
@@ -258,7 +302,7 @@ export default function StorefrontProduct() {
                   size="lg"
                   className="w-full h-14 text-lg rounded-2xl bg-slate-800 hover:bg-slate-900 text-white shadow-xl transition-all"
                   disabled={!isFullySelected}
-                  onClick={() => setIsWishlistOpen(true)}
+                  onClick={handleFavoriteAction}
                 >
                   <Bell className="w-5 h-5 mr-2" />
                   Avisar-me quando chegar
@@ -286,7 +330,7 @@ export default function StorefrontProduct() {
             size="lg"
             className="w-full h-14 text-lg rounded-2xl bg-slate-800 hover:bg-slate-900 text-white shadow-xl transition-all active:scale-[0.98]"
             disabled={!isFullySelected}
-            onClick={() => setIsWishlistOpen(true)}
+            onClick={handleFavoriteAction}
           >
             <Bell className="w-5 h-5 mr-2" />
             Avisar-me quando chegar
@@ -332,7 +376,10 @@ export default function StorefrontProduct() {
             </div>
           </div>
           <DialogFooter>
-            <Button disabled={wishlistLoading} onClick={handleAddToWishlist}>
+            <Button
+              disabled={wishlistLoading || !wishlistName || !wishlistEmail}
+              onClick={() => handleAddToWishlist()}
+            >
               {wishlistLoading ? 'Salvando...' : 'Confirmar'}
             </Button>
           </DialogFooter>
