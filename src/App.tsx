@@ -22,6 +22,7 @@ import Unsubscribe from './pages/Unsubscribe'
 import Calculator from './pages/Calculator'
 import Catalog from './pages/Catalog'
 import Finance from './pages/Finance'
+import Commissions from './pages/Commissions'
 import Suppliers from './pages/Suppliers'
 import Purchases from './pages/Purchases'
 import PreOrders from './pages/PreOrders'
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="/purchases" element={<Purchases />} />
               <Route path="/pre-orders" element={<PreOrders />} />
               <Route path="/sellers" element={<Sellers />} />
+              <Route path="/commissions" element={<Commissions />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />

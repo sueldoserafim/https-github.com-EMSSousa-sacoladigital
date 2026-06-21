@@ -137,7 +137,9 @@ export default function Finance() {
           ? 'Receita'
           : t.type === 'EXPENSE'
             ? 'Despesa'
-            : 'Estorno'
+            : t.type === 'COMMISSION_PAYABLE'
+              ? 'Comissão (A Pagar)'
+              : 'Estorno'
       const amount = Number(t.amount).toFixed(2)
       return `"${date}","${t.description}","${type}",${amount}`
     })
@@ -359,14 +361,18 @@ export default function Finance() {
                             ? 'bg-primary/10 text-primary'
                             : t.type === 'EXPENSE'
                               ? 'bg-destructive/10 text-destructive'
-                              : 'bg-muted text-muted-foreground',
+                              : t.type === 'COMMISSION_PAYABLE'
+                                ? 'bg-blue-500/10 text-blue-500'
+                                : 'bg-muted text-muted-foreground',
                         )}
                       >
                         {t.type === 'INCOME' || t.type === 'REVENUE'
                           ? 'Receita'
                           : t.type === 'EXPENSE'
                             ? 'Despesa'
-                            : 'Estorno'}
+                            : t.type === 'COMMISSION_PAYABLE'
+                              ? 'Comissão (A Pagar)'
+                              : 'Estorno'}
                       </span>
                     </TableCell>
                     <TableCell
@@ -374,10 +380,16 @@ export default function Finance() {
                         'text-right font-medium',
                         t.type === 'INCOME' || t.type === 'REVENUE'
                           ? 'text-primary'
-                          : 'text-destructive',
+                          : t.type === 'COMMISSION_PAYABLE'
+                            ? 'text-blue-500'
+                            : 'text-destructive',
                       )}
                     >
-                      {t.type === 'INCOME' || t.type === 'REVENUE' ? '+' : '-'}
+                      {t.type === 'INCOME' || t.type === 'REVENUE'
+                        ? '+'
+                        : t.type === 'COMMISSION_PAYABLE'
+                          ? ''
+                          : '-'}
                       {new Intl.NumberFormat('pt-BR', {
                         style: 'currency',
                         currency: 'BRL',

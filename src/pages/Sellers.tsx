@@ -32,13 +32,25 @@ export default function Sellers() {
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState({ name: '', slug: '' })
+  const [formData, setFormData] = useState({ name: '', slug: '', commission_rate: 0, user_id: '' })
+  const [profiles, setProfiles] = useState<any[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (organization?.id) fetchSellers()
+    if (organization?.id) {
+      fetchSellers()
+      fetchProfiles()
+    }
   }, [organization?.id])
+
+  const fetchProfiles = async () => {
+    const { data } = await supabase
+      .from('profiles' as any)
+      .select('*')
+      .eq('organization_id', organization!.id)
+    setProfiles(data || [])
+  }
 
   const fetchSellers = async () => {
     setLoading(true)
@@ -76,6 +88,8 @@ export default function Sellers() {
       name: formData.name,
       slug: slug,
       organization_id: organization!.id,
+      commission_rate: formData.commission_rate,
+      user_id: formData.user_id || null,
     }
 
     let error
@@ -139,7 +153,7 @@ export default function Sellers() {
         <Button
           onClick={() => {
             setEditingId(null)
-            setFormData({ name: '', slug: '' })
+            setFormData({ name: '', slug: '', commission_rate: 0, user_id: '' })
             setModalOpen(true)
           }}
         >
@@ -155,6 +169,7 @@ export default function Sellers() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Identificador (Slug)</TableHead>
+                <TableHead>Comissão</TableHead>
                 <TableHead>Link de Indicação</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -177,6 +192,7 @@ export default function Sellers() {
                   <TableRow key={seller.id}>
                     <TableCell className="font-medium">{seller.name}</TableCell>
                     <TableCell>{seller.slug}</TableCell>
+                    <TableCell>{seller.commission_rate || 0}%</TableCell>
                     <TableCell>
                       <Button
                         variant="outline"
@@ -198,7 +214,12 @@ export default function Sellers() {
                         size="icon"
                         onClick={() => {
                           setEditingId(seller.id)
-                          setFormData({ name: seller.name, slug: seller.slug })
+                          setFormData({
+                            name: seller.name,
+                            slug: seller.slug,
+                            commission_rate: seller.commission_rate || 0,
+                            user_id: seller.user_id || '',
+                          })
                           setModalOpen(true)
                         }}
                       >
@@ -233,6 +254,38 @@ export default function Sellers() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Taxa de Comissão (%)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                required
+                value={formData.commission_rate}
+                onChange={(e) =>
+                  setFormData({ ...formData, commission_rate: parseFloat(e.target.value) || 0 })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Vincular Usuário (Opcional)</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={formData.user_id}
+                onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
+              >
+                <option value="">Selecione um usuário...</option>
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name || p.email}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                O usuário precisa ter a role "seller" para ver seu extrato próprio.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Identificador na URL (Slug) - Opcional</Label>
