@@ -17,6 +17,8 @@ import Products from './pages/Products'
 import Settings from './pages/Settings'
 import Team from './pages/Team'
 import Customers from './pages/Customers'
+import Campaigns from './pages/Campaigns'
+import Unsubscribe from './pages/Unsubscribe'
 import Calculator from './pages/Calculator'
 import Catalog from './pages/Catalog'
 import Finance from './pages/Finance'
@@ -36,6 +38,7 @@ const App = () => (
         <Toaster />
         <Sonner position="top-right" />
         <Routes>
+          <Route path="/unsubscribe/:customerId" element={<Unsubscribe />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
             <Route path="/vitrine/:slug" element={<StorefrontLayout />}>
@@ -58,6 +61,7 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/team" element={<Team />} />
               <Route path="/customers" element={<Customers />} />
+              <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/calculator" element={<Calculator />} />
               <Route path="/catalog" element={<Catalog />} />
               <Route path="/finance" element={<Finance />} />

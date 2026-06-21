@@ -27,6 +27,7 @@ import {
   DollarSign,
   Truck,
   PackageOpen,
+  Mail,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -54,6 +55,7 @@ export function AppLayout() {
     { name: 'Fornecedores', href: '/suppliers', icon: Truck },
     { name: 'Pedidos de Compra', href: '/purchases', icon: PackageOpen },
     { name: 'Clientes', href: '/customers', icon: Users },
+    { name: 'Campanhas', href: '/campaigns', icon: Mail },
     { name: 'Financeiro', href: '/finance', icon: DollarSign },
     { name: 'Equipe', href: '/team', icon: UserCog },
     { name: 'Calculadora', href: '/calculator', icon: Calculator },

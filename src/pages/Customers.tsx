@@ -63,6 +63,7 @@ interface Customer {
   phone: string | null
   created_at: string
   segment?: string
+  is_unsubscribed?: boolean
   customer_tags?: { id: string; name: string }[]
 }
 
@@ -84,7 +85,12 @@ export default function Customers() {
 
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '' })
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    is_unsubscribed: false,
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -322,10 +328,11 @@ export default function Customers() {
         name: customer.name,
         email: customer.email || '',
         phone: customer.phone || '',
+        is_unsubscribed: customer.is_unsubscribed || false,
       })
     } else {
       setEditingCustomer(null)
-      setFormData({ name: '', email: '', phone: '' })
+      setFormData({ name: '', email: '', phone: '', is_unsubscribed: false })
     }
     setIsCustomerModalOpen(true)
   }
@@ -343,6 +350,7 @@ export default function Customers() {
             name: formData.name,
             email: formData.email || null,
             phone: formData.phone || null,
+            is_unsubscribed: formData.is_unsubscribed,
           })
           .eq('id', editingCustomer.id)
           .eq('organization_id', organization.id)
@@ -470,7 +478,17 @@ export default function Customers() {
                 <TableRow key={customer.id}>
                   <TableCell className="font-medium">{customer.name}</TableCell>
                   <TableCell>
-                    <div className="text-sm">{customer.email || '-'}</div>
+                    <div className="text-sm flex items-center gap-2">
+                      {customer.email || '-'}
+                      {customer.is_unsubscribed && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] bg-red-50 text-red-700 hover:bg-red-100"
+                        >
+                          Opt-out
+                        </Badge>
+                      )}
+                    </div>
                     <div className="text-sm text-gray-500">{customer.phone || '-'}</div>
                   </TableCell>
                   <TableCell>
@@ -571,6 +589,23 @@ export default function Customers() {
                   placeholder="(00) 00000-0000"
                 />
               </div>
+              {editingCustomer && (
+                <div className="flex items-center space-x-2 pt-2">
+                  <Switch
+                    id="unsubscribed"
+                    checked={formData.is_unsubscribed}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, is_unsubscribed: checked })
+                    }
+                  />
+                  <Label htmlFor="unsubscribed" className="text-sm cursor-pointer flex flex-col">
+                    <span>Cancelar Inscrição (LGPD)</span>
+                    <span className="font-normal text-xs text-gray-500">
+                      Cliente não receberá campanhas.
+                    </span>
+                  </Label>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsCustomerModalOpen(false)}>
