@@ -57,6 +57,8 @@ export default function Dashboard() {
   const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [segmentData, setSegmentData] = useState<any[]>([])
   const [inactiveCustomers, setInactiveCustomers] = useState<any[]>([])
+  const [ambassadors, setAmbassadors] = useState<any[]>([])
+  const [expiringSoon, setExpiringSoon] = useState<any[]>([])
   const { toast } = useToast()
 
   useEffect(() => {
@@ -78,6 +80,8 @@ export default function Dashboard() {
           { data: lowStockData },
           { data: customersData },
           { data: inactiveCustomersData },
+          { data: topAmbassadorsData },
+          { data: expiringSoonData },
         ] = await Promise.all([
           supabase
             .from('financial_transactions' as any)
@@ -110,6 +114,17 @@ export default function Dashboard() {
             .select('id, name, created_at, orders(created_at)')
             .eq('organization_id', organization.id)
             .eq('segment', 'Inativo'),
+          supabase
+            .from('loyalty_wallets')
+            .select('id, balance, customers(name)')
+            .eq('organization_id', organization.id)
+            .order('balance', { ascending: false })
+            .limit(5),
+          supabase
+            .from('vw_expiring_soon_points' as any)
+            .select('*')
+            .eq('organization_id', organization.id)
+            .limit(5),
         ])
 
         // Sales Performance Chart Data
@@ -287,6 +302,8 @@ export default function Dashboard() {
         setLowStock(lowStockData || [])
         setSegmentData(pieChartData)
         setInactiveCustomers(processedInactive)
+        setAmbassadors(topAmbassadorsData || [])
+        setExpiringSoon(expiringSoonData || [])
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
       } finally {
@@ -485,6 +502,80 @@ export default function Dashboard() {
             <Button variant="outline" className="w-full mt-auto" asChild>
               <a href="/products">Ver Inventário Completo</a>
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+        <Card className="shadow-sm border-border/50">
+          <CardHeader>
+            <CardTitle>Embaixadores da Marca</CardTitle>
+            <CardDescription>Top clientes por saldo de fidelidade</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {ambassadors.length > 0 ? (
+                ambassadors.map((ambassador, idx) => (
+                  <div
+                    key={ambassador.id}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
+                        {idx + 1}
+                      </div>
+                      <p className="font-medium text-foreground">
+                        {ambassador.customers?.name || 'Cliente'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-primary">
+                        {Number(ambassador.balance).toFixed(0)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">pts</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 text-muted-foreground border rounded-lg bg-muted/20">
+                  No ambassadors yet.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border-border/50">
+          <CardHeader>
+            <CardTitle>Pontos Expirando em Breve</CardTitle>
+            <CardDescription>Clientes com pontos a expirar nos próximos 30 dias</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {expiringSoon.length > 0 ? (
+                expiringSoon.map((item) => (
+                  <div
+                    key={item.wallet_id}
+                    className="flex items-center justify-between p-3 border rounded-lg bg-red-50/50 dark:bg-red-950/10 border-red-100 dark:border-red-900/30"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">{item.customer_name}</p>
+                      <p className="text-xs text-red-600 dark:text-red-400">Risco de expiração</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-red-600 dark:text-red-400">
+                        {Number(item.expiring_points).toFixed(0)}
+                      </p>
+                      <p className="text-xs text-red-600/70 dark:text-red-400/70">pts expirando</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 text-muted-foreground border rounded-lg bg-muted/20">
+                  Nenhum ponto expirando em breve.
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
