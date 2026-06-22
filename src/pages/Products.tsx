@@ -26,9 +26,23 @@ export default function Products() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
 
+  const [finSettings, setFinSettings] = useState<any>(null)
+
   useEffect(() => {
-    if (organization?.id) fetchProducts()
+    if (organization?.id) {
+      fetchProducts()
+      fetchFinSettings()
+    }
   }, [organization?.id])
+
+  const fetchFinSettings = async () => {
+    const { data } = await supabase
+      .from('organization_financial_settings')
+      .select('*')
+      .eq('organization_id', organization?.id)
+      .maybeSingle()
+    if (data) setFinSettings(data)
+  }
 
   const fetchProducts = async () => {
     const { data } = await supabase
@@ -84,6 +98,14 @@ export default function Products() {
         const cost = p.cost || 0
         const margin = price > 0 ? ((price - cost) / price) * 100 : 0
 
+        const overhead = finSettings
+          ? (Number(finSettings.monthly_fixed_costs || 0) +
+              Number(finSettings.monthly_pro_labore || 0)) /
+            Math.max(1, Number(finSettings.expected_monthly_orders || 1))
+          : 0
+        const realCost = cost + overhead
+        const realMargin = price > 0 ? ((price - realCost) / price) * 100 : 0
+
         const wishlistsCount = hasVariations
           ? skus.reduce((acc: number, s: any) => acc + (s.wishlists?.length || 0), 0)
           : 0
@@ -96,6 +118,9 @@ export default function Products() {
           variationsSummary,
           mainImage,
           margin,
+          overhead,
+          realCost,
+          realMargin,
           wishlistsCount,
         }
       })
@@ -114,7 +139,7 @@ export default function Products() {
       })
 
     return { totalProducts: products.length, outOfStockCount: outCount, filteredList: list }
-  }, [products, search, statusFilter])
+  }, [products, search, statusFilter, finSettings])
 
   const openModal = (id: string | null = null) => {
     setEditingId(id)
@@ -192,12 +217,12 @@ export default function Products() {
               <TableRow>
                 <TableHead className="pl-6 py-4">Produto</TableHead>
                 <TableHead>Variações</TableHead>
-                <TableHead>Preço / Custo</TableHead>
-                <TableHead>Margem</TableHead>
+                <TableHead>Preço / Custos</TableHead>
+                <TableHead>Margem Real</TableHead>
                 <TableHead>Interesse</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right pr-6">Ações</TableHead>
-              </TableRow>
+              </TableRow>{' '}
             </TableHeader>
             <TableBody>
               {filteredList.map((p) => (
@@ -226,20 +251,52 @@ export default function Products() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col text-sm">
-                      <span className="font-medium text-foreground">{formatCurrency(p.price)}</span>
-                      <span className="text-muted-foreground">{formatCurrency(p.cost)}</span>
+                    <div className="flex flex-col text-sm space-y-1">
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Venda:</span>
+                        <span className="font-medium text-foreground">
+                          {formatCurrency(p.price)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Base:</span>
+                        <span className="text-muted-foreground">{formatCurrency(p.cost)}</span>
+                      </div>
+                      {finSettings && (
+                        <div className="flex justify-between gap-4 pt-1 border-t border-border/50">
+                          <span className="text-xs text-muted-foreground font-semibold">Real:</span>
+                          <span className="text-xs font-semibold">
+                            {formatCurrency(p.realCost)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        p.margin > 30 ? 'default' : p.margin > 0 ? 'secondary' : 'destructive'
-                      }
-                      className="font-mono"
-                    >
-                      {p.margin.toFixed(1)}%
-                    </Badge>
+                    <div className="flex flex-col gap-1.5">
+                      <Badge
+                        variant={
+                          p.margin > 30 ? 'default' : p.margin > 0 ? 'secondary' : 'destructive'
+                        }
+                        className="font-mono w-fit text-xs"
+                      >
+                        Bruta: {p.margin.toFixed(1)}%
+                      </Badge>
+                      {finSettings && (
+                        <Badge
+                          variant={
+                            p.realMargin > 20
+                              ? 'default'
+                              : p.realMargin > 0
+                                ? 'secondary'
+                                : 'destructive'
+                          }
+                          className="font-mono w-fit text-xs opacity-90"
+                        >
+                          Real: {p.realMargin.toFixed(1)}%
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {p.wishlistsCount > 0 ? (

@@ -34,6 +34,16 @@ export default function Settings() {
   const [maxDiscountPercentage, setMaxDiscountPercentage] = useState(50)
   const [loadingLoyalty, setLoadingLoyalty] = useState(false)
 
+  const [monthlyFixedCosts, setMonthlyFixedCosts] = useState(0)
+  const [monthlyProLabore, setMonthlyProLabore] = useState(0)
+  const [expectedMonthlyOrders, setExpectedMonthlyOrders] = useState(1)
+  const [loadingFinancial, setLoadingFinancial] = useState(false)
+
+  const [fixedCosts, setFixedCosts] = useState(0)
+  const [proLabore, setProLabore] = useState(0)
+  const [expectedOrders, setExpectedOrders] = useState(100)
+  const [loadingFin, setLoadingFin] = useState(false)
+
   const handleFileUpload = async (
     file: File,
     folder: 'logos' | 'banners',
@@ -101,10 +111,22 @@ export default function Settings() {
           setMaxDiscountPercentage(data.max_discount_percentage)
         }
       }
+      const loadFin = async () => {
+        const { data } = await supabase
+          .from('organization_financial_settings')
+          .select('*')
+          .eq('organization_id', organization.id)
+          .maybeSingle()
+        if (data) {
+          setFixedCosts(data.monthly_fixed_costs)
+          setProLabore(data.monthly_pro_labore)
+          setExpectedOrders(data.expected_monthly_orders)
+        }
+      }
       loadLoyalty()
+      loadFin()
     }
   }, [organization, profile])
-
   const handleUpdateOrg = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!organization) return
@@ -161,6 +183,47 @@ export default function Settings() {
     }
   }
 
+  const handleUpdateFinancial = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!organization) return
+    setLoadingFinancial(true)
+
+    const { data: existing } = await supabase
+      .from('organization_financial_settings')
+      .select('id')
+      .eq('organization_id', organization.id)
+      .maybeSingle()
+
+    let error
+    if (existing) {
+      const res = await supabase
+        .from('organization_financial_settings')
+        .update({
+          monthly_fixed_costs: monthlyFixedCosts,
+          monthly_pro_labore: monthlyProLabore,
+          expected_monthly_orders: expectedMonthlyOrders,
+        })
+        .eq('id', existing.id)
+      error = res.error
+    } else {
+      const res = await supabase.from('organization_financial_settings').insert({
+        organization_id: organization.id,
+        monthly_fixed_costs: monthlyFixedCosts,
+        monthly_pro_labore: monthlyProLabore,
+        expected_monthly_orders: expectedMonthlyOrders,
+      })
+      error = res.error
+    }
+
+    setLoadingFinancial(false)
+
+    if (error) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Sucesso', description: 'Configurações financeiras salvas.' })
+    }
+  }
+
   const handleUpdateLoyalty = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!organization) return
@@ -199,6 +262,47 @@ export default function Settings() {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' })
     } else {
       toast({ title: 'Sucesso', description: 'Configurações de fidelidade salvas.' })
+    }
+  }
+
+  const handleUpdateFin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!organization) return
+    setLoadingFin(true)
+
+    const { data: existing } = await supabase
+      .from('organization_financial_settings')
+      .select('id')
+      .eq('organization_id', organization.id)
+      .maybeSingle()
+
+    let error
+    if (existing) {
+      const res = await supabase
+        .from('organization_financial_settings')
+        .update({
+          monthly_fixed_costs: fixedCosts,
+          monthly_pro_labore: proLabore,
+          expected_monthly_orders: expectedOrders,
+        })
+        .eq('id', existing.id)
+      error = res.error
+    } else {
+      const res = await supabase.from('organization_financial_settings').insert({
+        organization_id: organization.id,
+        monthly_fixed_costs: fixedCosts,
+        monthly_pro_labore: proLabore,
+        expected_monthly_orders: expectedOrders,
+      })
+      error = res.error
+    }
+
+    setLoadingFin(false)
+
+    if (error) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Sucesso', description: 'Configurações financeiras salvas.' })
     }
   }
 
@@ -404,6 +508,65 @@ export default function Settings() {
             <CardFooter>
               <Button type="submit" disabled={loadingLoyalty}>
                 {loadingLoyalty && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar Regras
+              </Button>
+            </CardFooter>
+          </Card>
+        </form>
+
+        <form onSubmit={handleUpdateFin}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Financeiro Avançado</CardTitle>
+              <CardDescription>
+                Configure seus custos fixos para visualizar a margem real dos seus produtos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fixedCosts">Custos Fixos Mensais (R$)</Label>
+                <Input
+                  id="fixedCosts"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={fixedCosts}
+                  onChange={(e) => setFixedCosts(Number(e.target.value))}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">Ex: Aluguel, internet, sistemas.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="proLabore">Pró-labore Desejado (R$)</Label>
+                <Input
+                  id="proLabore"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={proLabore}
+                  onChange={(e) => setProLabore(Number(e.target.value))}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">O salário mensal do proprietário.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expectedOrders">Volume de Vendas Estimado (unidades/mês)</Label>
+                <Input
+                  id="expectedOrders"
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={expectedOrders}
+                  onChange={(e) => setExpectedOrders(Number(e.target.value))}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Usado para ratear os custos fixos por unidade vendida (overhead).
+                </p>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button type="submit" disabled={loadingFin}>
+                {loadingFin && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar Financeiro
               </Button>
             </CardFooter>
           </Card>
