@@ -31,12 +31,13 @@ export function NewCampaignModal({ open, onOpenChange, onSuccess }: any) {
   })
 
   useEffect(() => {
-    if (!open || !organization?.id)
-      return supabase
-        .from('suppliers')
-        .select('id, name')
-        .eq('organization_id', organization.id)
-        .then(({ data }) => setSuppliers(data || []))
+    if (!open || !organization?.id) return
+
+    supabase
+      .from('suppliers')
+      .select('id, name')
+      .eq('organization_id', organization.id)
+      .then(({ data }) => setSuppliers(data || []))
 
     supabase
       .from('product_skus')

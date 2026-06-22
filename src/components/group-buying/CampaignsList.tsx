@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
+import { PackageOpen } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -43,8 +44,10 @@ function SellerCampaignCard({ campaign, sellerId, onRefresh }: any) {
 
   const totalReserved =
     campaign.group_buying_reservations?.reduce((acc: number, r: any) => acc + r.quantity, 0) || 0
-  const percent = Math.min((totalReserved / campaign.target_quantity) * 100, 100)
-  const isExpired = new Date(campaign.deadline) < new Date()
+  const percent = campaign.target_quantity
+    ? Math.min((totalReserved / campaign.target_quantity) * 100, 100)
+    : 0
+  const isExpired = campaign.deadline ? new Date(campaign.deadline) < new Date() : false
   const isActive = campaign.status === 'active' && !isExpired
 
   const handleReserve = async () => {
@@ -93,7 +96,9 @@ function SellerCampaignCard({ campaign, sellerId, onRefresh }: any) {
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Prazo:</span>
-          <span className="font-medium">{format(new Date(campaign.deadline), 'dd/MM/yyyy')}</span>
+          <span className="font-medium">
+            {campaign.deadline ? format(new Date(campaign.deadline), 'dd/MM/yyyy') : '-'}
+          </span>
         </div>
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-medium">
@@ -125,7 +130,14 @@ function SellerCampaignCard({ campaign, sellerId, onRefresh }: any) {
   )
 }
 
-export function CampaignsList({ campaigns, loading, isSeller, sellerId, onRefresh }: any) {
+export function CampaignsList({
+  campaigns,
+  loading,
+  isSeller,
+  sellerId,
+  onRefresh,
+  onNewCampaign,
+}: any) {
   const { toast } = useToast()
 
   const handleClose = async (id: string) => {
@@ -179,8 +191,17 @@ export function CampaignsList({ campaigns, loading, isSeller, sellerId, onRefres
 
   if (campaigns.length === 0) {
     return (
-      <div className="p-8 text-center bg-white rounded-xl border border-border shadow-sm text-muted-foreground">
-        Nenhuma campanha encontrada.
+      <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl border border-border shadow-sm text-center">
+        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+          <PackageOpen className="w-8 h-8 text-primary" />
+        </div>
+        <h3 className="text-lg font-semibold mb-1">Nenhuma campanha encontrada</h3>
+        <p className="text-muted-foreground mb-6 max-w-sm">
+          {isSeller
+            ? 'No momento não há nenhuma campanha de compra coletiva ativa para participar.'
+            : 'Crie sua primeira campanha de compra coletiva para começar a agrupar demandas de produtos.'}
+        </p>
+        {!isSeller && <Button onClick={onNewCampaign}>Nova Campanha</Button>}
       </div>
     )
   }
@@ -212,7 +233,9 @@ export function CampaignsList({ campaigns, loading, isSeller, sellerId, onRefres
           {campaigns.map((c: any) => {
             const totalReserved =
               c.group_buying_reservations?.reduce((acc: number, r: any) => acc + r.quantity, 0) || 0
-            const percent = Math.min((totalReserved / c.target_quantity) * 100, 100)
+            const percent = c.target_quantity
+              ? Math.min((totalReserved / c.target_quantity) * 100, 100)
+              : 0
 
             return (
               <TableRow key={c.id}>
@@ -235,7 +258,9 @@ export function CampaignsList({ campaigns, loading, isSeller, sellerId, onRefres
                     {translateStatus(c.status)}
                   </Badge>
                 </TableCell>
-                <TableCell>{format(new Date(c.deadline), 'dd/MM/yyyy')}</TableCell>
+                <TableCell>
+                  {c.deadline ? format(new Date(c.deadline), 'dd/MM/yyyy') : '-'}
+                </TableCell>
                 <TableCell className="text-right">
                   {c.status === 'active' && (
                     <Button size="sm" variant="outline" onClick={() => handleClose(c.id)}>

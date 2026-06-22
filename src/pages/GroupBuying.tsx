@@ -16,23 +16,55 @@ export default function GroupBuying() {
   const [isNewModalOpen, setIsNewModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const fetchCampaigns = async () => {
-    if (!organization?.id) return
+  const fetchData = async () => {
+    if (!organization?.id || !user?.id) return
+
+    setLoading(true)
     try {
-      setLoading(true)
-      const { data, error } = await supabase
+      let isUserSeller = false
+      let sellerDataId = null
+
+      const { data: sellerData } = await supabase
+        .from('sellers')
+        .select('id')
+        .eq('organization_id', organization.id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (sellerData) {
+        isUserSeller = true
+        sellerDataId = sellerData.id
+        setIsSeller(true)
+        setSellerId(sellerData.id)
+      }
+
+      let query = supabase
         .from('group_buying_campaigns')
         .select(`
           *,
           product_skus ( sku_code, products ( name ) ),
           suppliers ( name ),
-          group_buying_reservations ( seller_id, quantity )
+          group_buying_reservations ( id, seller_id, quantity )
         `)
         .eq('organization_id', organization.id)
         .order('created_at', { ascending: false })
 
+      if (isUserSeller) {
+        query = query.eq('status', 'active')
+      }
+
+      const { data: campaignsData, error } = await query
+
       if (error) throw error
-      setCampaigns(data || [])
+
+      let finalCampaigns = campaignsData || []
+      if (isUserSeller) {
+        finalCampaigns = finalCampaigns.filter(
+          (c) => c.deadline && new Date(c.deadline) >= new Date(),
+        )
+      }
+
+      setCampaigns(finalCampaigns)
     } catch (error: any) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' })
     } finally {
@@ -40,28 +72,8 @@ export default function GroupBuying() {
     }
   }
 
-  const checkSeller = async () => {
-    if (!organization?.id || !user?.id) return
-    try {
-      const { data } = await supabase
-        .from('sellers')
-        .select('id')
-        .eq('organization_id', organization.id)
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (data) {
-        setIsSeller(true)
-        setSellerId(data.id)
-      }
-    } catch (e) {
-      // Not a seller or error
-    }
-  }
-
   useEffect(() => {
-    fetchCampaigns()
-    checkSeller()
+    fetchData()
   }, [organization?.id, user?.id])
 
   return (
@@ -87,13 +99,14 @@ export default function GroupBuying() {
         loading={loading}
         isSeller={isSeller}
         sellerId={sellerId}
-        onRefresh={fetchCampaigns}
+        onRefresh={fetchData}
+        onNewCampaign={() => setIsNewModalOpen(true)}
       />
 
       <NewCampaignModal
         open={isNewModalOpen}
         onOpenChange={setIsNewModalOpen}
-        onSuccess={fetchCampaigns}
+        onSuccess={fetchData}
       />
     </div>
   )
