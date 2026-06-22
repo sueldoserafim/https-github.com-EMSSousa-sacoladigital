@@ -58,6 +58,7 @@ export function AppLayout() {
     { name: 'Pedidos de Compra', href: '/purchases', icon: PackageOpen },
     { name: 'Clientes', href: '/customers', icon: Users },
     { name: 'Vendedoras', href: '/sellers', icon: BadgeDollarSign },
+    { name: 'Compra Coletiva', href: '/group-buying', icon: Users },
     { name: 'Comissões', href: '/commissions', icon: Wallet },
     { name: 'Campanhas', href: '/campaigns', icon: Mail },
     { name: 'Financeiro', href: '/finance', icon: DollarSign },

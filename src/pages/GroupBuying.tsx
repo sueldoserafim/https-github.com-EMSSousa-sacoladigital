@@ -3,7 +3,6 @@ import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase/client'
 import { CampaignsList } from '@/components/group-buying/CampaignsList'
 import { NewCampaignModal } from '@/components/group-buying/NewCampaignModal'
-import { ReserveModal } from '@/components/group-buying/ReserveModal'
 import { Button } from '@/components/ui/button'
 import { Plus, Users } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -15,7 +14,6 @@ export default function GroupBuying() {
   const [isSeller, setIsSeller] = useState(false)
   const [sellerId, setSellerId] = useState<string | null>(null)
   const [isNewModalOpen, setIsNewModalOpen] = useState(false)
-  const [reserveCampaign, setReserveCampaign] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   const fetchCampaigns = async () => {
@@ -89,20 +87,12 @@ export default function GroupBuying() {
         loading={loading}
         isSeller={isSeller}
         sellerId={sellerId}
-        onReserve={(c: any) => setReserveCampaign(c)}
         onRefresh={fetchCampaigns}
       />
 
       <NewCampaignModal
         open={isNewModalOpen}
         onOpenChange={setIsNewModalOpen}
-        onSuccess={fetchCampaigns}
-      />
-
-      <ReserveModal
-        campaign={reserveCampaign}
-        sellerId={sellerId}
-        onClose={() => setReserveCampaign(null)}
         onSuccess={fetchCampaigns}
       />
     </div>
