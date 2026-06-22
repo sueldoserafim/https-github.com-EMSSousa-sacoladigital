@@ -13,6 +13,7 @@ export default function RouteHistory() {
   const [logisticsSettings, setLogisticsSettings] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [filterType, setFilterType] = useState<'delivery' | 'creation'>('delivery')
 
   useEffect(() => {
     if (organization) {
@@ -24,7 +25,7 @@ export default function RouteHistory() {
     if (organization && selectedDate) {
       loadHistory()
     }
-  }, [organization, selectedDate])
+  }, [organization, selectedDate, filterType])
 
   const loadSettings = async () => {
     const { data } = await supabase
@@ -40,28 +41,38 @@ export default function RouteHistory() {
     const start = startOfDay(new Date(selectedDate)).toISOString()
     const end = endOfDay(new Date(selectedDate)).toISOString()
 
-    const { data: historyData } = await supabase
-      .from('order_status_history')
-      .select('order_id')
-      .eq('organization_id', organization!.id)
-      .eq('new_status', 'Entregue')
-      .gte('created_at', start)
-      .lte('created_at', end)
+    let ordersData: any[] | null = []
 
-    if (!historyData || historyData.length === 0) {
-      setOrders([])
-      setLoading(false)
-      return
+    if (filterType === 'delivery') {
+      const { data: historyData } = await supabase
+        .from('order_status_history')
+        .select('order_id')
+        .eq('organization_id', organization!.id)
+        .eq('new_status', 'Entregue')
+        .gte('created_at', start)
+        .lte('created_at', end)
+
+      if (historyData && historyData.length > 0) {
+        const orderIds = historyData.map((h) => h.order_id)
+        const { data } = await supabase
+          .from('orders')
+          .select('*, customers(name)')
+          .in('id', orderIds)
+          .not('delivery_lat', 'is', null)
+          .not('delivery_lng', 'is', null)
+        ordersData = data
+      }
+    } else {
+      const { data } = await supabase
+        .from('orders')
+        .select('*, customers(name)')
+        .eq('organization_id', organization!.id)
+        .gte('created_at', start)
+        .lte('created_at', end)
+        .not('delivery_lat', 'is', null)
+        .not('delivery_lng', 'is', null)
+      ordersData = data
     }
-
-    const orderIds = historyData.map((h) => h.order_id)
-
-    const { data: ordersData } = await supabase
-      .from('orders')
-      .select('*, customers(name)')
-      .in('id', orderIds)
-      .not('delivery_lat', 'is', null)
-      .not('delivery_lng', 'is', null)
 
     setOrders(ordersData || [])
     setLoading(false)
@@ -155,16 +166,31 @@ export default function RouteHistory() {
             Visualize as rotas de entrega concluídas no passado.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-auto bg-white"
-          />
-          <Button onClick={loadHistory} variant="outline" size="icon" className="bg-white">
-            <Search className="w-4 h-4" />
-          </Button>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value as 'delivery' | 'creation')}
+            className="flex h-10 w-full sm:w-auto items-center justify-between rounded-md border border-input bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            <option value="delivery">Data de Entrega</option>
+            <option value="creation">Data de Criação</option>
+          </select>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="w-full sm:w-auto bg-white"
+            />
+            <Button
+              onClick={loadHistory}
+              variant="outline"
+              size="icon"
+              className="bg-white shrink-0"
+            >
+              <Search className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -244,6 +270,7 @@ export default function RouteHistory() {
                       <p className="font-bold text-primary">{o.order_number}</p>
                       <p className="font-semibold">{o.customers?.name}</p>
                       <p className="text-muted-foreground truncate">{o.delivery_address}</p>
+                      <p className="text-muted-foreground mt-1">Status: {o.status}</p>
                     </div>
                   </div>
                 )
