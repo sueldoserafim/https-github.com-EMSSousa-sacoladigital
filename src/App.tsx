@@ -83,28 +83,29 @@ const App = () => (
             <Route element={<ProtectedRoute allowedRoles={['admin', 'member', 'seller']} />}>
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/seller/dashboard" element={<SellerDashboard />} />
-              <Route path="/admin/sellers/performance" element={<SellerPerformance />} />
-              <Route path="/orders" element={<Orders />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/team" element={<Team />} />
-              <Route path="/customers" element={<Customers />} />
-              <Route path="/campaigns" element={<Campaigns />} />
-              <Route path="/calculator" element={<Calculator />} />
-              <Route path="/catalog" element={<Catalog />} />
-              <Route path="/finance" element={<Finance />} />
-              <Route path="/suppliers" element={<Suppliers />} />
-              <Route path="/purchases" element={<Purchases />} />
-              <Route path="/pre-orders" element={<PreOrders />} />
-              <Route path="/sellers" element={<Sellers />} />
-              <Route path="/commissions" element={<Commissions />} />
-              <Route path="/group-buying" element={<GroupBuying />} />
-              <Route path="/consignments" element={<Consignments />} />
-              <Route path="/deliveries-map" element={<DeliveriesMap />} />
-              <Route path="/route-history" element={<RouteHistory />} />
-              <Route path="/returns" element={<Returns />} />
-              <Route path="/automations" element={<Automations />} />
+                <Route path="/seller/dashboard" element={<SellerDashboard />} />
+                <Route path="/admin/sellers/performance" element={<SellerPerformance />} />
+                <Route path="/orders" element={<Orders />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/team" element={<Team />} />
+                <Route path="/customers" element={<Customers />} />
+                <Route path="/campaigns" element={<Campaigns />} />
+                <Route path="/calculator" element={<Calculator />} />
+                <Route path="/catalog" element={<Catalog />} />
+                <Route path="/finance" element={<Finance />} />
+                <Route path="/suppliers" element={<Suppliers />} />
+                <Route path="/purchases" element={<Purchases />} />
+                <Route path="/pre-orders" element={<PreOrders />} />
+                <Route path="/sellers" element={<Sellers />} />
+                <Route path="/commissions" element={<Commissions />} />
+                <Route path="/group-buying" element={<GroupBuying />} />
+                <Route path="/consignments" element={<Consignments />} />
+                <Route path="/deliveries-map" element={<DeliveriesMap />} />
+                <Route path="/route-history" element={<RouteHistory />} />
+                <Route path="/returns" element={<Returns />} />
+                <Route path="/automations" element={<Automations />} />
+              </Route>
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />

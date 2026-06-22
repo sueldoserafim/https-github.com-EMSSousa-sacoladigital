@@ -1,7 +1,7 @@
 {
   "_versions": {
     "generate-skus": 3,
-    "invite-user": 4,
+    "invite-user": 5,
     "notify-preorder-ready": 3,
     "segment-customers": 2,
     "notify-back-in-stock": 2,
