@@ -9,7 +9,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LayoutDashboard, Users, Building, LogOut, Menu, ShieldAlert } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Users,
+  Building,
+  LogOut,
+  Menu,
+  ShieldAlert,
+  TrendingUp,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function MasterLayout() {
@@ -40,6 +48,7 @@ export function MasterLayout() {
     { name: 'Dashboard Global', href: '/master/dashboard', icon: LayoutDashboard },
     { name: 'Organizações', href: '/master/organizations', icon: Building },
     { name: 'Usuários do Sistema', href: '/master/users', icon: Users },
+    { name: 'Performance de Vendas', href: '/admin/sellers/performance', icon: TrendingUp },
   ]
 
   const getInitials = (name: string) => (name ? name.charAt(0).toUpperCase() : 'S')

@@ -12,49 +12,78 @@ import {
 } from '@/components/ui/table'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
-import { ArrowUpDown, Loader2 } from 'lucide-react'
+import { ArrowUpDown, Loader2, Calendar as CalendarIcon } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
+import { format, subDays } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { cn } from '@/lib/utils'
 
 export default function SellerPerformance() {
-  const { organization } = useAuth()
+  const { organization, isSuperAdmin } = useAuth()
   const [loading, setLoading] = useState(true)
   const [performanceData, setPerformanceData] = useState<any[]>([])
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
     key: 'salesValue',
     direction: 'desc',
   })
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date | undefined }>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  })
 
   useEffect(() => {
-    if (!organization) return
+    if (!isSuperAdmin && !organization) {
+      setLoading(false)
+      return
+    }
 
     const fetchPerformance = async () => {
       setLoading(true)
-      // Fetch sellers
-      const { data: sellers } = await supabase
+
+      let sellersQuery = supabase
         .from('sellers')
-        .select('*')
-        .eq('organization_id', organization.id)
-
-      // Fetch all orders
-      const { data: orders } = await supabase
+        .select('id, name, organization_id, organizations(name)')
+      let ordersQuery = supabase
         .from('orders')
-        .select('seller_id, total')
-        .eq('organization_id', organization.id)
+        .select('seller_id, total, created_at')
         .not('seller_id', 'is', null)
-
-      // Fetch commissions (financial transactions with seller_id)
-      const { data: commissions } = await supabase
-        .from('financial_transactions' as any)
-        .select('seller_id, amount')
-        .eq('organization_id', organization.id)
+      let commissionsQuery = supabase
+        .from('financial_transactions')
+        .select('seller_id, amount, created_at')
         .ilike('type', '%commission%')
 
-      const combined = (sellers || []).map((seller) => {
+      if (!isSuperAdmin && organization) {
+        sellersQuery = sellersQuery.eq('organization_id', organization.id)
+        ordersQuery = ordersQuery.eq('organization_id', organization.id)
+        commissionsQuery = commissionsQuery.eq('organization_id', organization.id)
+      }
+
+      if (dateRange.from) {
+        ordersQuery = ordersQuery.gte('created_at', dateRange.from.toISOString())
+        commissionsQuery = commissionsQuery.gte('created_at', dateRange.from.toISOString())
+      }
+      if (dateRange.to) {
+        const toDate = new Date(dateRange.to)
+        toDate.setHours(23, 59, 59, 999)
+        ordersQuery = ordersQuery.lte('created_at', toDate.toISOString())
+        commissionsQuery = commissionsQuery.lte('created_at', toDate.toISOString())
+      }
+
+      const [{ data: sellers }, { data: orders }, { data: commissions }] = await Promise.all([
+        sellersQuery,
+        ordersQuery,
+        commissionsQuery,
+      ])
+
+      const combined = (sellers || []).map((seller: any) => {
         const sellerOrders = (orders || []).filter((o) => o.seller_id === seller.id)
         const sellerCommissions = (commissions || []).filter((c) => c.seller_id === seller.id)
 
         return {
           id: seller.id,
           name: seller.name,
+          organizationName: seller.organizations?.name || 'N/A',
           totalOrders: sellerOrders.length,
           salesValue: sellerOrders.reduce((acc, curr) => acc + Number(curr.total || 0), 0),
           commissionTotal: sellerCommissions.reduce(
@@ -70,7 +99,7 @@ export default function SellerPerformance() {
     }
 
     fetchPerformance()
-  }, [organization])
+  }, [organization, isSuperAdmin, dateRange])
 
   const handleSort = (key: string) => {
     const direction = sortConfig.key === key && sortConfig.direction === 'desc' ? 'asc' : 'desc'
@@ -88,21 +117,57 @@ export default function SellerPerformance() {
 
   const maxSales = Math.max(...performanceData.map((d) => d.salesValue), 1)
 
-  if (loading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in-up">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Ranking de Vendedoras</h1>
-        <p className="text-muted-foreground mt-1">
-          Acompanhe a performance e o comissionamento da sua equipe.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Ranking de Vendedoras</h1>
+          <p className="text-muted-foreground mt-1">
+            {isSuperAdmin
+              ? 'Visão global de performance de vendedoras em todas as organizações.'
+              : 'Acompanhe a performance e o comissionamento da sua equipe.'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  'justify-start text-left font-normal w-[260px]',
+                  !dateRange && 'text-muted-foreground',
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
+                    </>
+                  ) : (
+                    format(dateRange.from, 'dd/MM/yyyy')
+                  )
+                ) : (
+                  <span>Selecione um período</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={{ from: dateRange.from, to: dateRange.to }}
+                onSelect={(range: any) =>
+                  setDateRange({ from: range?.from || new Date(), to: range?.to })
+                }
+                numberOfMonths={2}
+                locale={ptBR}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       <Card className="shadow-sm border-border/50">
@@ -113,78 +178,94 @@ export default function SellerPerformance() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead>Vendedora</TableHead>
-                  <TableHead className="w-[180px]">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('totalOrders')}
-                      className="font-semibold hover:bg-transparent px-0 text-muted-foreground"
-                    >
-                      Total Pedidos <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="w-[300px]">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('salesValue')}
-                      className="font-semibold hover:bg-transparent px-0 text-muted-foreground"
-                    >
-                      Valor Vendido <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-right">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('commissionTotal')}
-                      className="font-semibold hover:bg-transparent px-0 ml-auto text-muted-foreground"
-                    >
-                      Comissão <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {performanceData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
-                      Nenhuma vendedora com vendas registradas ou cadastradas na equipe.
-                    </TableCell>
+          {loading ? (
+            <div className="flex h-40 items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="rounded-md border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Vendedora</TableHead>
+                    {isSuperAdmin && <TableHead>Organização</TableHead>}
+                    <TableHead className="w-[180px]">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('totalOrders')}
+                        className="font-semibold hover:bg-transparent px-0 text-muted-foreground"
+                      >
+                        Total Pedidos <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="w-[300px]">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('salesValue')}
+                        className="font-semibold hover:bg-transparent px-0 text-muted-foreground"
+                      >
+                        Valor Vendido <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('commissionTotal')}
+                        className="font-semibold hover:bg-transparent px-0 ml-auto text-muted-foreground"
+                      >
+                        Comissão <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
                   </TableRow>
-                ) : (
-                  performanceData.map((seller) => (
-                    <TableRow key={seller.id}>
-                      <TableCell className="font-medium text-foreground">{seller.name}</TableCell>
-                      <TableCell>{seller.totalOrders} pedidos</TableCell>
-                      <TableCell>
-                        <div className="space-y-2 pr-4">
-                          <span className="font-semibold text-primary">
-                            {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL',
-                            }).format(seller.salesValue)}
-                          </span>
-                          <Progress
-                            value={(seller.salesValue / maxSales) * 100}
-                            className="h-2 bg-primary/10"
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-green-600 dark:text-green-400">
-                        {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL',
-                        }).format(seller.commissionTotal)}
+                </TableHeader>
+                <TableBody>
+                  {performanceData.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={isSuperAdmin ? 5 : 4}
+                        className="text-center py-10 text-muted-foreground"
+                      >
+                        Nenhuma vendedora com vendas registradas ou cadastradas no período
+                        selecionado.
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ) : (
+                    performanceData.map((seller) => (
+                      <TableRow key={seller.id}>
+                        <TableCell className="font-medium text-foreground">{seller.name}</TableCell>
+                        {isSuperAdmin && (
+                          <TableCell className="text-muted-foreground">
+                            {seller.organizationName}
+                          </TableCell>
+                        )}
+                        <TableCell>{seller.totalOrders} pedidos</TableCell>
+                        <TableCell>
+                          <div className="space-y-2 pr-4">
+                            <span className="font-semibold text-primary">
+                              {new Intl.NumberFormat('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL',
+                              }).format(seller.salesValue)}
+                            </span>
+                            <Progress
+                              value={(seller.salesValue / maxSales) * 100}
+                              className="h-2 bg-primary/10"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-green-600 dark:text-green-400">
+                          {new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
+                          }).format(seller.commissionTotal)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
