@@ -9,7 +9,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LayoutDashboard, Users, Building, LogOut, Menu, ShieldAlert } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Users,
+  Building,
+  LogOut,
+  Menu,
+  ShieldAlert,
+  CreditCard,
+  Activity,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function MasterLayout() {
@@ -39,6 +48,8 @@ export function MasterLayout() {
   const navItems = [
     { name: 'Dashboard Global', href: '/master/dashboard', icon: LayoutDashboard },
     { name: 'Organizações', href: '/master/organizations', icon: Building },
+    { name: 'Planos', href: '/master/plans', icon: CreditCard },
+    { name: 'Logs de Auditoria', href: '/master/audit-logs', icon: Activity },
     { name: 'Usuários do Sistema', href: '/master/users', icon: Users },
   ]
 

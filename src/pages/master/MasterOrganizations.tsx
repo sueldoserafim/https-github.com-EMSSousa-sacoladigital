@@ -29,24 +29,28 @@ import { Textarea } from '@/components/ui/textarea'
 
 export default function MasterOrganizations() {
   const [organizations, setOrganizations] = useState<any[]>([])
+  const [plans, setPlans] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [editingOrg, setEditingOrg] = useState<any>(null)
   const { toast } = useToast()
 
-  const loadOrgs = async () => {
+  const loadData = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('organizations')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (!error && data) {
-      setOrganizations(data)
-    }
+    const [{ data: orgsData, error: orgsError }, { data: plansData }] = await Promise.all([
+      supabase
+        .from('organizations')
+        .select('*, plans(name)')
+        .order('created_at', { ascending: false }),
+      supabase.from('plans').select('id, name'),
+    ])
+
+    if (orgsData) setOrganizations(orgsData)
+    if (plansData) setPlans(plansData)
     setLoading(false)
   }
 
   useEffect(() => {
-    loadOrgs()
+    loadData()
   }, [])
 
   const handleSave = async (e: React.FormEvent) => {
@@ -58,11 +62,13 @@ export default function MasterOrganizations() {
       .update({
         name: editingOrg.name,
         slug: editingOrg.slug,
-        plan_type: editingOrg.plan_type,
         whatsapp_number: editingOrg.whatsapp_number,
         description: editingOrg.description,
         logo_url: editingOrg.logo_url,
         banner_url: editingOrg.banner_url,
+        plan_id: editingOrg.plan_id || null,
+        subscription_status: editingOrg.subscription_status || 'trial',
+        trial_ends_at: editingOrg.trial_ends_at || null,
       })
       .eq('id', editingOrg.id)
 
@@ -75,7 +81,29 @@ export default function MasterOrganizations() {
     } else {
       toast({ title: 'Organização atualizada com sucesso!' })
       setEditingOrg(null)
-      loadOrgs()
+      loadData()
+    }
+  }
+
+  const getDaysRemaining = (dateString?: string) => {
+    if (!dateString) return null
+    const diff = new Date(dateString).getTime() - new Date().getTime()
+    const days = Math.ceil(diff / (1000 * 3600 * 24))
+    return days > 0 ? days : 0
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <Badge className="bg-emerald-500 hover:bg-emerald-600">Ativo</Badge>
+      case 'trial':
+        return <Badge className="bg-blue-500 hover:bg-blue-600">Trial</Badge>
+      case 'past_due':
+        return <Badge className="bg-amber-500 hover:bg-amber-600">Atrasado</Badge>
+      case 'canceled':
+        return <Badge variant="destructive">Cancelado</Badge>
+      default:
+        return <Badge variant="secondary">{status}</Badge>
     }
   }
 
@@ -100,9 +128,9 @@ export default function MasterOrganizations() {
             <TableHeader className="bg-slate-50/50">
               <TableRow>
                 <TableHead className="pl-6">Nome</TableHead>
-                <TableHead>Slug</TableHead>
                 <TableHead>Plano</TableHead>
-                <TableHead>WhatsApp</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Trial Restante</TableHead>
                 <TableHead>Criado em</TableHead>
                 <TableHead className="text-right pr-6">Ações</TableHead>
               </TableRow>
@@ -124,13 +152,17 @@ export default function MasterOrganizations() {
                 organizations.map((org) => (
                   <TableRow key={org.id}>
                     <TableCell className="font-medium pl-6 text-slate-900">{org.name}</TableCell>
-                    <TableCell className="text-slate-600">{org.slug}</TableCell>
-                    <TableCell>
-                      <Badge variant={org.plan_type === 'enterprise' ? 'default' : 'secondary'}>
-                        {org.plan_type || 'basic'}
-                      </Badge>
+                    <TableCell className="text-slate-600">
+                      {org.plans?.name || org.plan_type || 'Nenhum'}
                     </TableCell>
-                    <TableCell className="text-slate-600">{org.whatsapp_number || '-'}</TableCell>
+                    <TableCell>{getStatusBadge(org.subscription_status || 'trial')}</TableCell>
+                    <TableCell className="text-slate-600">
+                      {org.subscription_status === 'trial' ? (
+                        <span>{getDaysRemaining(org.trial_ends_at)} dias</span>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
                     <TableCell className="text-slate-600">
                       {format(new Date(org.created_at), 'dd/MM/yyyy', { locale: ptBR })}
                     </TableCell>
@@ -153,7 +185,10 @@ export default function MasterOrganizations() {
             <DialogTitle>Editar Organização</DialogTitle>
           </DialogHeader>
           {editingOrg && (
-            <form onSubmit={handleSave} className="space-y-4 pt-4">
+            <form
+              onSubmit={handleSave}
+              className="space-y-4 pt-4 max-h-[80vh] overflow-y-auto px-1"
+            >
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Nome</Label>
@@ -176,18 +211,52 @@ export default function MasterOrganizations() {
                 <div className="space-y-2">
                   <Label>Plano de Assinatura</Label>
                   <Select
-                    value={editingOrg.plan_type || 'basic'}
-                    onValueChange={(val) => setEditingOrg({ ...editingOrg, plan_type: val })}
+                    value={editingOrg.plan_id || ''}
+                    onValueChange={(val) => setEditingOrg({ ...editingOrg, plan_id: val })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o plano" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="basic">Basic</SelectItem>
-                      <SelectItem value="pro">Pro</SelectItem>
-                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                      {plans.map((plan) => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Status da Assinatura</Label>
+                  <Select
+                    value={editingOrg.subscription_status || 'trial'}
+                    onValueChange={(val) =>
+                      setEditingOrg({ ...editingOrg, subscription_status: val })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="trial">Trial</SelectItem>
+                      <SelectItem value="active">Ativo</SelectItem>
+                      <SelectItem value="past_due">Atrasado</SelectItem>
+                      <SelectItem value="canceled">Cancelado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Fim do Período de Teste (Trial)</Label>
+                  <Input
+                    type="date"
+                    value={editingOrg.trial_ends_at ? editingOrg.trial_ends_at.split('T')[0] : ''}
+                    onChange={(e) =>
+                      setEditingOrg({ ...editingOrg, trial_ends_at: e.target.value })
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>WhatsApp</Label>
