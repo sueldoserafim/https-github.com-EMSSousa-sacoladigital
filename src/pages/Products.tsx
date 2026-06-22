@@ -39,7 +39,8 @@ export default function Products() {
           id, sku_code, stock, min_stock_level, price_override, image_url,
           sku_attribute_values (
             attribute_options ( value )
-          )
+          ),
+          wishlists ( id )
         )
       `)
       .order('created_at', { ascending: false })
@@ -83,6 +84,10 @@ export default function Products() {
         const cost = p.cost || 0
         const margin = price > 0 ? ((price - cost) / price) * 100 : 0
 
+        const wishlistsCount = hasVariations
+          ? skus.reduce((acc: number, s: any) => acc + (s.wishlists?.length || 0), 0)
+          : 0
+
         return {
           ...p,
           totalStock,
@@ -91,6 +96,7 @@ export default function Products() {
           variationsSummary,
           mainImage,
           margin,
+          wishlistsCount,
         }
       })
       .filter((p) => {
@@ -188,6 +194,7 @@ export default function Products() {
                 <TableHead>Variações</TableHead>
                 <TableHead>Preço / Custo</TableHead>
                 <TableHead>Margem</TableHead>
+                <TableHead>Interesse</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right pr-6">Ações</TableHead>
               </TableRow>
@@ -235,6 +242,18 @@ export default function Products() {
                     </Badge>
                   </TableCell>
                   <TableCell>
+                    {p.wishlistsCount > 0 ? (
+                      <Badge
+                        variant="secondary"
+                        className="bg-pink-50 text-pink-700 border-pink-200"
+                      >
+                        {p.wishlistsCount} {p.wishlistsCount === 1 ? 'salvo' : 'salvos'}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <Badge
                       variant={p.inStock ? (p.isLowStock ? 'secondary' : 'outline') : 'destructive'}
                       className={
@@ -257,7 +276,7 @@ export default function Products() {
               ))}
               {filteredList.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                     Nenhum produto encontrado.
                   </TableCell>
                 </TableRow>

@@ -74,11 +74,16 @@ interface TimelineEvent {
   data: any
 }
 
+interface CustomerWithOrders extends Customer {
+  orders?: { created_at: string }[]
+  inactivityStatus?: 'At Risk' | 'Inactive' | null
+}
+
 export default function Customers() {
   const { organization, profile } = useAuth()
   const { toast } = useToast()
 
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CustomerWithOrders[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [isSegmenting, setIsSegmenting] = useState(false)
@@ -120,12 +125,30 @@ export default function Customers() {
       setLoading(true)
       const { data, error } = await supabase
         .from('customers')
-        .select('*, customer_tags(id, name)')
+        .select('*, customer_tags(id, name), orders(created_at)')
         .eq('organization_id', organization.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setCustomers(data || [])
+
+      const now = new Date()
+      const formattedData = (data || []).map((c: any) => {
+        let inactivityStatus = null
+        if (c.orders && c.orders.length > 0) {
+          const lastOrder = c.orders.reduce((latest: Date, o: any) => {
+            const d = new Date(o.created_at)
+            return d > latest ? d : latest
+          }, new Date(0))
+
+          const daysSinceLastOrder = (now.getTime() - lastOrder.getTime()) / (1000 * 3600 * 24)
+          if (daysSinceLastOrder > 60) inactivityStatus = 'At Risk'
+          else if (daysSinceLastOrder > 30) inactivityStatus = 'Inactive'
+        }
+
+        return { ...c, inactivityStatus }
+      })
+
+      setCustomers(formattedData)
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar clientes',
@@ -455,6 +478,7 @@ export default function Customers() {
               <TableHead>Nome</TableHead>
               <TableHead>Contato</TableHead>
               <TableHead>Segmento</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Tags</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -462,14 +486,14 @@ export default function Customers() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
                   Carregando...
                 </TableCell>
               </TableRow>
             ) : filteredCustomers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                   Nenhum cliente encontrado.
                 </TableCell>
               </TableRow>
@@ -495,6 +519,37 @@ export default function Customers() {
                     <Badge variant="outline" className={getSegmentColor(customer.segment)}>
                       {customer.segment || 'Novo'}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {customer.inactivityStatus === 'At Risk' && (
+                      <Badge
+                        variant="destructive"
+                        className="bg-red-100 text-red-800 hover:bg-red-200 border-red-200"
+                      >
+                        Em Risco
+                      </Badge>
+                    )}
+                    {customer.inactivityStatus === 'Inactive' && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200"
+                      >
+                        Inativo
+                      </Badge>
+                    )}
+                    {!customer.inactivityStatus &&
+                      customer.orders &&
+                      customer.orders.length > 0 && (
+                        <Badge
+                          variant="outline"
+                          className="bg-green-50 text-green-700 border-green-200"
+                        >
+                          Ativo
+                        </Badge>
+                      )}
+                    {(!customer.orders || customer.orders.length === 0) && (
+                      <span className="text-xs text-gray-400">Sem pedidos</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
