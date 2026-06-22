@@ -4,7 +4,6 @@ import {
   DollarSign,
   ShoppingCart,
   Package,
-  ArrowRight,
   TrendingUp,
   Activity,
   AlertTriangle,
@@ -32,7 +31,6 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell,
 } from 'recharts'
 import { supabase } from '@/lib/supabase/client'
 import { format, subDays, startOfMonth, subMonths } from 'date-fns'
