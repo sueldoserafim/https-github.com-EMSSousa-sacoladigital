@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Loader2, X, ImageIcon } from 'lucide-react'
+import { Loader2, X, ImageIcon, Search } from 'lucide-react'
 
 export default function Settings() {
   const { user, profile, organization } = useAuth()
@@ -43,6 +43,14 @@ export default function Settings() {
   const [proLabore, setProLabore] = useState(0)
   const [expectedOrders, setExpectedOrders] = useState(100)
   const [loadingFin, setLoadingFin] = useState(false)
+
+  const [baseShippingFee, setBaseShippingFee] = useState(0)
+  const [costPerKm, setCostPerKm] = useState(0)
+  const [storeAddress, setStoreAddress] = useState('')
+  const [storeLat, setStoreLat] = useState<number | ''>('')
+  const [storeLng, setStoreLng] = useState<number | ''>('')
+  const [loadingLogistics, setLoadingLogistics] = useState(false)
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false)
 
   const handleFileUpload = async (
     file: File,
@@ -123,8 +131,23 @@ export default function Settings() {
           setExpectedOrders(data.expected_monthly_orders)
         }
       }
+      const loadLogistics = async () => {
+        const { data } = await supabase
+          .from('organization_logistics_settings')
+          .select('*')
+          .eq('organization_id', organization.id)
+          .maybeSingle()
+        if (data) {
+          setBaseShippingFee(data.base_shipping_fee || 0)
+          setCostPerKm(data.cost_per_km || 0)
+          setStoreAddress(data.store_address || '')
+          setStoreLat(data.store_lat || '')
+          setStoreLng(data.store_lng || '')
+        }
+      }
       loadLoyalty()
       loadFin()
+      loadLogistics()
     }
   }, [organization, profile])
   const handleUpdateOrg = async (e: React.FormEvent) => {
@@ -221,6 +244,80 @@ export default function Settings() {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' })
     } else {
       toast({ title: 'Sucesso', description: 'Configurações financeiras salvas.' })
+    }
+  }
+
+  const handleSearchAddress = async () => {
+    if (!storeAddress) return
+    setIsSearchingAddress(true)
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(storeAddress)}`,
+      )
+      const data = await res.json()
+      if (data && data.length > 0) {
+        setStoreLat(parseFloat(data[0].lat))
+        setStoreLng(parseFloat(data[0].lon))
+        toast({
+          title: 'Coordenadas encontradas',
+          description: 'Latitude e Longitude atualizadas.',
+        })
+      } else {
+        toast({
+          title: 'Endereço não encontrado',
+          description: 'Tente ser mais específico.',
+          variant: 'destructive',
+        })
+      }
+    } catch (e) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível buscar o endereço.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSearchingAddress(false)
+    }
+  }
+
+  const handleUpdateLogistics = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!organization) return
+    setLoadingLogistics(true)
+
+    const { data: existing } = await supabase
+      .from('organization_logistics_settings')
+      .select('id')
+      .eq('organization_id', organization.id)
+      .maybeSingle()
+
+    const payload = {
+      base_shipping_fee: baseShippingFee,
+      cost_per_km: costPerKm,
+      store_address: storeAddress,
+      store_lat: storeLat === '' ? null : storeLat,
+      store_lng: storeLng === '' ? null : storeLng,
+    }
+
+    let error
+    if (existing) {
+      const res = await supabase
+        .from('organization_logistics_settings')
+        .update(payload)
+        .eq('id', existing.id)
+      error = res.error
+    } else {
+      const res = await supabase.from('organization_logistics_settings').insert({
+        organization_id: organization.id,
+        ...payload,
+      })
+      error = res.error
+    }
+    setLoadingLogistics(false)
+    if (error) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Sucesso', description: 'Configurações de logística salvas.' })
     }
   }
 
@@ -567,6 +664,75 @@ export default function Settings() {
             <CardFooter>
               <Button type="submit" disabled={loadingFin}>
                 {loadingFin && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar Financeiro
+              </Button>
+            </CardFooter>
+          </Card>
+        </form>
+
+        <form onSubmit={handleUpdateLogistics}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Logística e Entregas</CardTitle>
+              <CardDescription>
+                Configure taxas e endereço base para cálculo de entregas por KM.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="baseShippingFee">Taxa Base de Entrega (R$)</Label>
+                <Input
+                  id="baseShippingFee"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={baseShippingFee}
+                  onChange={(e) => setBaseShippingFee(Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="costPerKm">Custo Adicional por KM (R$)</Label>
+                <Input
+                  id="costPerKm"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={costPerKm}
+                  onChange={(e) => setCostPerKm(Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="storeAddress">Endereço Base da Loja (Ponto de Partida)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="storeAddress"
+                    value={storeAddress}
+                    onChange={(e) => setStoreAddress(e.target.value)}
+                    placeholder="Ex: Av. Paulista, 1000, São Paulo"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSearchAddress}
+                    disabled={isSearchingAddress}
+                  >
+                    {isSearchingAddress ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+                {storeLat !== '' && storeLng !== '' && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Coordenadas salvas: {storeLat}, {storeLng}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button type="submit" disabled={loadingLogistics}>
+                {loadingLogistics && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar
+                Logística
               </Button>
             </CardFooter>
           </Card>

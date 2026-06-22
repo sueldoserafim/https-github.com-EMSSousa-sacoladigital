@@ -31,6 +31,7 @@ import PreOrders from './pages/PreOrders'
 import Sellers from './pages/Sellers'
 import GroupBuying from './pages/GroupBuying'
 import Consignments from './pages/Consignments'
+import DeliveriesMap from './pages/DeliveriesMap'
 import StorefrontLayout from './pages/storefront/StorefrontLayout'
 import StorefrontIndex from './pages/storefront/StorefrontIndex'
 import StorefrontProduct from './pages/storefront/StorefrontProduct'
@@ -80,6 +81,7 @@ const App = () => (
               <Route path="/commissions" element={<Commissions />} />
               <Route path="/group-buying" element={<GroupBuying />} />
               <Route path="/consignments" element={<Consignments />} />
+              <Route path="/deliveries-map" element={<DeliveriesMap />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />

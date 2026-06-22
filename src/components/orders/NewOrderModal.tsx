@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Loader2, Search } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Switch } from '@/components/ui/switch'
 
@@ -47,16 +47,27 @@ export function NewOrderModal({
   const [wallet, setWallet] = useState<any>(null)
   const [usePoints, setUsePoints] = useState(false)
 
+  const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [deliveryLat, setDeliveryLat] = useState<number | ''>('')
+  const [deliveryLng, setDeliveryLng] = useState<number | ''>('')
+  const [logisticsConfig, setLogisticsConfig] = useState<any>(null)
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false)
+  const [shippingFee, setShippingFee] = useState(0)
+
   useEffect(() => {
     if (open) {
       loadData()
       setCustomerId('')
       setItems([{ productId: '', skuId: '', quantity: 1, price: 0 }])
+      setDeliveryAddress('')
+      setDeliveryLat('')
+      setDeliveryLng('')
+      setShippingFee(0)
     }
   }, [open, organizationId])
 
   const loadData = async () => {
-    const [custRes, prodRes, skuRes, configRes] = await Promise.all([
+    const [custRes, prodRes, skuRes, configRes, logRes] = await Promise.all([
       supabase.from('customers').select('*').eq('organization_id', organizationId),
       supabase.from('products').select('*').eq('organization_id', organizationId),
       supabase.from('product_skus').select('*').eq('organization_id', organizationId),
@@ -65,11 +76,17 @@ export function NewOrderModal({
         .select('*')
         .eq('organization_id', organizationId)
         .maybeSingle(),
+      supabase
+        .from('organization_logistics_settings')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .maybeSingle(),
     ])
     if (custRes.data) setCustomers(custRes.data)
     if (prodRes.data) setProducts(prodRes.data)
     if (skuRes.data) setSkus(skuRes.data)
     if (configRes.data) setLoyaltyConfig(configRes.data)
+    if (logRes.data) setLogisticsConfig(logRes.data)
   }
 
   useEffect(() => {
@@ -85,8 +102,68 @@ export function NewOrderModal({
           else setWallet(null)
         })
       setUsePoints(false)
+
+      const cust = customers.find((c) => c.id === customerId)
+      if (cust?.address) {
+        setDeliveryAddress(cust.address)
+      }
     }
-  }, [customerId, organizationId])
+  }, [customerId, organizationId, customers])
+
+  const getDistanceFromLatLonInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371
+    const dLat = (lat2 - lat1) * (Math.PI / 180)
+    const dLon = (lon2 - lon1) * (Math.PI / 180)
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2)
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+
+  const handleSearchDeliveryAddress = async () => {
+    if (!deliveryAddress) return
+    setIsSearchingAddress(true)
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(deliveryAddress)}`,
+      )
+      const data = await res.json()
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat)
+        const lng = parseFloat(data[0].lon)
+        setDeliveryLat(lat)
+        setDeliveryLng(lng)
+        if (logisticsConfig && logisticsConfig.store_lat && logisticsConfig.store_lng) {
+          const dist = getDistanceFromLatLonInKm(
+            logisticsConfig.store_lat,
+            logisticsConfig.store_lng,
+            lat,
+            lng,
+          )
+          const fee = logisticsConfig.base_shipping_fee + dist * logisticsConfig.cost_per_km
+          setShippingFee(Math.round(fee * 100) / 100)
+        }
+        toast({ title: 'Coordenadas encontradas', description: 'Taxa de entrega calculada.' })
+      } else {
+        toast({
+          title: 'Endereço não encontrado',
+          description: 'Tente ser mais específico.',
+          variant: 'destructive',
+        })
+      }
+    } catch (e) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível buscar o endereço.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSearchingAddress(false)
+    }
+  }
 
   const handleProductSelect = (index: number, val: string) => {
     const newItems = [...items]
@@ -143,8 +220,12 @@ export function NewOrderModal({
           organization_id: organizationId,
           customer_id: customerId,
           order_number: orderNumber,
-          total: finalTotal,
+          total: finalTotal + shippingFee,
           status: 'Novo',
+          shipping_fee: shippingFee,
+          delivery_address: deliveryAddress,
+          delivery_lat: deliveryLat === '' ? null : deliveryLat,
+          delivery_lng: deliveryLng === '' ? null : deliveryLng,
         })
         .select()
         .single()
@@ -207,6 +288,35 @@ export function NewOrderModal({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Endereço de Entrega</Label>
+            <div className="flex gap-2">
+              <Input
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                placeholder="Ex: Rua das Flores, 123, São Paulo"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSearchDeliveryAddress}
+                disabled={isSearchingAddress}
+              >
+                {isSearchingAddress ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Search className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+            {deliveryLat !== '' && deliveryLng !== '' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Coordenadas salvas: {deliveryLat}, {deliveryLng}{' '}
+                {shippingFee > 0 ? `| Frete: R$ ${shippingFee.toFixed(2)}` : ''}
+              </p>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -337,10 +447,18 @@ export function NewOrderModal({
                 ({ptsToUse} pts)
               </div>
             )}
+            {shippingFee > 0 && (
+              <div className="text-sm text-muted-foreground font-medium">
+                Frete (Logística):{' '}
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                  shippingFee,
+                )}
+              </div>
+            )}
             <div className="text-lg font-bold text-foreground">
               Total:{' '}
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                finalTotal,
+                finalTotal + shippingFee,
               )}
             </div>
           </div>

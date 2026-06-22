@@ -32,6 +32,7 @@ import {
   Wallet,
   Archive,
   TrendingUp,
+  Map,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -78,6 +79,7 @@ export function AppLayout() {
     { name: 'Vendedoras', href: '/sellers', icon: BadgeDollarSign },
     { name: 'Ranking de Vendas', href: '/admin/sellers/performance', icon: TrendingUp },
     { name: 'Consignação', href: '/consignments', icon: Archive },
+    { name: 'Mapa de Entregas', href: '/deliveries-map', icon: Map },
     { name: 'Compra Coletiva', href: '/group-buying', icon: Users },
     { name: 'Comissões', href: '/commissions', icon: Wallet },
     { name: 'Campanhas', href: '/campaigns', icon: Mail },
