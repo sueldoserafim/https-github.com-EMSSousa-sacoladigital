@@ -48,7 +48,7 @@ export function MasterLayout() {
     { name: 'Dashboard Global', href: '/master/dashboard', icon: LayoutDashboard },
     { name: 'Organizações', href: '/master/organizations', icon: Building },
     { name: 'Usuários do Sistema', href: '/master/users', icon: Users },
-    { name: 'Performance de Vendas', href: '/admin/sellers/performance', icon: TrendingUp },
+    { name: 'Performance de Vendas', href: '/master/sellers/performance', icon: TrendingUp },
   ]
 
   const getInitials = (name: string) => (name ? name.charAt(0).toUpperCase() : 'S')

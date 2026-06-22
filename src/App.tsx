@@ -39,6 +39,7 @@ import { MasterLayout } from './components/layouts/MasterLayout'
 import MasterDashboard from './pages/master/MasterDashboard'
 import MasterOrganizations from './pages/master/MasterOrganizations'
 import MasterUsers from './pages/master/MasterUsers'
+import MasterSellerPerformance from './pages/master/MasterSellerPerformance'
 import StorefrontLayout from './pages/storefront/StorefrontLayout'
 import StorefrontIndex from './pages/storefront/StorefrontIndex'
 import StorefrontProduct from './pages/storefront/StorefrontProduct'
@@ -72,6 +73,7 @@ const App = () => (
               <Route path="/master/dashboard" element={<MasterDashboard />} />
               <Route path="/master/organizations" element={<MasterOrganizations />} />
               <Route path="/master/users" element={<MasterUsers />} />
+              <Route path="/master/sellers/performance" element={<MasterSellerPerformance />} />
             </Route>
 
             {/* Authenticated App Routes */}

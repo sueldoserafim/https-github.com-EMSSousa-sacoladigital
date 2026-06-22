@@ -20,7 +20,7 @@ import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 
 export default function SellerPerformance() {
-  const { organization, isSuperAdmin } = useAuth()
+  const { organization } = useAuth()
   const [loading, setLoading] = useState(true)
   const [performanceData, setPerformanceData] = useState<any[]>([])
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
@@ -33,7 +33,7 @@ export default function SellerPerformance() {
   })
 
   useEffect(() => {
-    if (!isSuperAdmin && !organization) {
+    if (!organization) {
       setLoading(false)
       return
     }
@@ -43,53 +43,43 @@ export default function SellerPerformance() {
 
       let sellersQuery = supabase
         .from('sellers')
-        .select('id, name, organization_id, organizations(name)')
+        .select('id, name, commission_rate')
+        .eq('organization_id', organization.id)
+
       let ordersQuery = supabase
         .from('orders')
-        .select('seller_id, total, created_at')
+        .select('seller_id, total, status, created_at')
+        .eq('organization_id', organization.id)
         .not('seller_id', 'is', null)
-      let commissionsQuery = supabase
-        .from('financial_transactions')
-        .select('seller_id, amount, created_at')
-        .ilike('type', '%commission%')
-
-      if (!isSuperAdmin && organization) {
-        sellersQuery = sellersQuery.eq('organization_id', organization.id)
-        ordersQuery = ordersQuery.eq('organization_id', organization.id)
-        commissionsQuery = commissionsQuery.eq('organization_id', organization.id)
-      }
 
       if (dateRange.from) {
         ordersQuery = ordersQuery.gte('created_at', dateRange.from.toISOString())
-        commissionsQuery = commissionsQuery.gte('created_at', dateRange.from.toISOString())
       }
       if (dateRange.to) {
         const toDate = new Date(dateRange.to)
         toDate.setHours(23, 59, 59, 999)
         ordersQuery = ordersQuery.lte('created_at', toDate.toISOString())
-        commissionsQuery = commissionsQuery.lte('created_at', toDate.toISOString())
       }
 
-      const [{ data: sellers }, { data: orders }, { data: commissions }] = await Promise.all([
-        sellersQuery,
-        ordersQuery,
-        commissionsQuery,
-      ])
+      const [{ data: sellers }, { data: orders }] = await Promise.all([sellersQuery, ordersQuery])
+
+      const successStatuses = ['completed', 'concluído', 'entregue', 'pago', 'novo', 'aprovado']
+      const isSuccess = (status: string) => successStatuses.includes(status?.toLowerCase() || '')
 
       const combined = (sellers || []).map((seller: any) => {
         const sellerOrders = (orders || []).filter((o) => o.seller_id === seller.id)
-        const sellerCommissions = (commissions || []).filter((c) => c.seller_id === seller.id)
+        const successfulOrders = sellerOrders.filter((o) => isSuccess(o.status))
+
+        const salesValue = successfulOrders.reduce((acc, curr) => acc + Number(curr.total || 0), 0)
+        const rate = Number(seller.commission_rate || 0)
+        const commissionTotal = salesValue * (rate / 100)
 
         return {
           id: seller.id,
           name: seller.name,
-          organizationName: seller.organizations?.name || 'N/A',
-          totalOrders: sellerOrders.length,
-          salesValue: sellerOrders.reduce((acc, curr) => acc + Number(curr.total || 0), 0),
-          commissionTotal: sellerCommissions.reduce(
-            (acc, curr) => acc + Number(curr.amount || 0),
-            0,
-          ),
+          totalOrders: successfulOrders.length,
+          salesValue,
+          commissionTotal,
         }
       })
 
@@ -99,7 +89,7 @@ export default function SellerPerformance() {
     }
 
     fetchPerformance()
-  }, [organization, isSuperAdmin, dateRange])
+  }, [organization, dateRange])
 
   const handleSort = (key: string) => {
     const direction = sortConfig.key === key && sortConfig.direction === 'desc' ? 'asc' : 'desc'
@@ -123,9 +113,7 @@ export default function SellerPerformance() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Ranking de Vendedoras</h1>
           <p className="text-muted-foreground mt-1">
-            {isSuperAdmin
-              ? 'Visão global de performance de vendedoras em todas as organizações.'
-              : 'Acompanhe a performance e o comissionamento da sua equipe.'}
+            Acompanhe a performance e o comissionamento da sua equipe.
           </p>
         </div>
 
@@ -188,7 +176,6 @@ export default function SellerPerformance() {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead>Vendedora</TableHead>
-                    {isSuperAdmin && <TableHead>Organização</TableHead>}
                     <TableHead className="w-[180px]">
                       <Button
                         variant="ghost"
@@ -221,23 +208,14 @@ export default function SellerPerformance() {
                 <TableBody>
                   {performanceData.length === 0 ? (
                     <TableRow>
-                      <TableCell
-                        colSpan={isSuperAdmin ? 5 : 4}
-                        className="text-center py-10 text-muted-foreground"
-                      >
-                        Nenhuma vendedora com vendas registradas ou cadastradas no período
-                        selecionado.
+                      <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
+                        Nenhuma vendedora com vendas registradas no período selecionado.
                       </TableCell>
                     </TableRow>
                   ) : (
                     performanceData.map((seller) => (
                       <TableRow key={seller.id}>
                         <TableCell className="font-medium text-foreground">{seller.name}</TableCell>
-                        {isSuperAdmin && (
-                          <TableCell className="text-muted-foreground">
-                            {seller.organizationName}
-                          </TableCell>
-                        )}
                         <TableCell>{seller.totalOrders} pedidos</TableCell>
                         <TableCell>
                           <div className="space-y-2 pr-4">
