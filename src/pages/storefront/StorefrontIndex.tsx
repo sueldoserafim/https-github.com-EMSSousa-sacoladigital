@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Store, Heart, Star } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import {
   Dialog,
   DialogContent,
@@ -152,6 +153,36 @@ function ProductModalContent({
             'Produto de alta qualidade com um design premium e materiais selecionados. Conforto e elegância garantidos.'}
         </p>
 
+        {(() => {
+          const skuCampaign = product.activeCampaigns?.find(
+            (c: any) => c.sku_id === matchingSku?.id,
+          )
+          if (!skuCampaign) return null
+
+          return (
+            <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 flex flex-col gap-2 mt-2">
+              <div className="flex justify-between items-center text-sm font-semibold">
+                <span className="text-purple-700">Compra Coletiva</span>
+                <span className="text-purple-900">
+                  {skuCampaign.total_reserved} / {skuCampaign.target_quantity}
+                </span>
+              </div>
+              <Progress
+                value={Math.min(
+                  (skuCampaign.total_reserved / skuCampaign.target_quantity) * 100,
+                  100,
+                )}
+                className="h-2 bg-purple-200"
+              />
+              <p className="text-xs font-medium text-purple-600 mt-1">
+                {skuCampaign.total_reserved >= skuCampaign.target_quantity
+                  ? 'Meta atingida!'
+                  : `Faltam ${skuCampaign.target_quantity - skuCampaign.total_reserved} unidades para a meta ser atingida!`}
+              </p>
+            </div>
+          )
+        })()}
+
         <div className="flex items-baseline gap-2.5 mt-2">
           <span className="text-3xl font-extrabold text-[#be185d]">
             {new Intl.NumberFormat('pt-BR', {
@@ -252,6 +283,7 @@ export default function StorefrontIndex() {
   const { org, searchTerm, activeCategory } = useStorefront()
   const { slug } = useParams()
   const [products, setProducts] = useState<any[]>([])
+  const [campaigns, setCampaigns] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
@@ -334,20 +366,39 @@ export default function StorefrontIndex() {
   }
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      const { data } = await supabase
-        .from('products')
-        .select(
-          'id, name, price, product_skus(id, stock, price_override, image_url), attributes(name, attribute_options(value))',
-        )
-        .eq('organization_id', org.id)
+    const fetchProductsAndCampaigns = async () => {
+      const [productsRes, campaignsRes] = await Promise.all([
+        supabase
+          .from('products')
+          .select(
+            'id, name, price, product_skus(id, stock, price_override, image_url), attributes(name, attribute_options(value))',
+          )
+          .eq('organization_id', org.id),
+        supabase
+          .from('group_buying_campaigns')
+          .select('*, group_buying_reservations(quantity)')
+          .eq('organization_id', org.id)
+          .eq('status', 'active')
+          .gt('deadline', new Date().toISOString()),
+      ])
 
-      if (data) {
-        setProducts(data)
+      if (productsRes.data) {
+        setProducts(productsRes.data)
+      }
+      if (campaignsRes.data) {
+        setCampaigns(
+          campaignsRes.data.map((c) => ({
+            ...c,
+            total_reserved: c.group_buying_reservations.reduce(
+              (acc: number, r: any) => acc + r.quantity,
+              0,
+            ),
+          })),
+        )
       }
       setLoading(false)
     }
-    fetchProducts()
+    fetchProductsAndCampaigns()
   }, [org.id])
 
   if (loading) return <div className="text-center py-20 text-slate-500">Carregando produtos...</div>
@@ -406,10 +457,14 @@ export default function StorefrontIndex() {
 
             const imageUrl = product.product_skus[0]?.image_url
 
+            const activeCampaigns = campaigns.filter((c) =>
+              product.product_skus.some((s: any) => s.id === c.sku_id),
+            )
+
             return (
               <div
                 key={product.id}
-                onClick={() => setSelectedProduct(product)}
+                onClick={() => setSelectedProduct({ ...product, activeCampaigns })}
                 className="group outline-none block h-full cursor-pointer"
               >
                 <Card className="flex flex-col h-full overflow-hidden rounded-[24px] border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 relative bg-white">
@@ -431,11 +486,18 @@ export default function StorefrontIndex() {
                     />
                   </button>
 
-                  {hasDiscount && (
-                    <Badge className="absolute top-3 left-3 z-20 bg-[#be185d] hover:bg-[#9d124b] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
-                      -{discountPercent}%
-                    </Badge>
-                  )}
+                  <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5 items-start">
+                    {hasDiscount && (
+                      <Badge className="bg-[#be185d] hover:bg-[#9d124b] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
+                        -{discountPercent}%
+                      </Badge>
+                    )}
+                    {activeCampaigns.length > 0 && (
+                      <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
+                        Compra Coletiva
+                      </Badge>
+                    )}
+                  </div>
 
                   {isOutOfStock && (
                     <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">

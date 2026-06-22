@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase/client'
 import { ArrowLeft, Store, ShoppingBag, Heart, Star, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ export default function StorefrontProduct() {
   const [product, setProduct] = useState<any>(null)
   const [attributes, setAttributes] = useState<any[]>([])
   const [skus, setSkus] = useState<any[]>([])
+  const [campaigns, setCampaigns] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
@@ -79,6 +81,29 @@ export default function StorefrontProduct() {
       if (!prodRes.data) {
         setLoading(false)
         return
+      }
+
+      const { data: campaignsRes } = await supabase
+        .from('group_buying_campaigns')
+        .select('*, group_buying_reservations(quantity)')
+        .eq('organization_id', prodRes.data.organization_id)
+        .in(
+          'sku_id',
+          (skuRes.data || []).map((s) => s.id),
+        )
+        .eq('status', 'active')
+        .gt('deadline', new Date().toISOString())
+
+      if (campaignsRes) {
+        setCampaigns(
+          campaignsRes.map((c) => ({
+            ...c,
+            total_reserved: c.group_buying_reservations.reduce(
+              (acc: number, r: any) => acc + r.quantity,
+              0,
+            ),
+          })),
+        )
       }
 
       setProduct(prodRes.data)
@@ -216,9 +241,16 @@ export default function StorefrontProduct() {
 
           {/* Product Details Section */}
           <div className="w-full md:w-1/2 p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col">
-            <Badge className="w-fit mb-4 bg-pink-100 text-pink-700 hover:bg-pink-100 border-none px-3 py-1 font-bold">
-              Mais Vendido
-            </Badge>
+            <div className="flex gap-2 mb-4 flex-wrap">
+              <Badge className="w-fit bg-pink-100 text-pink-700 hover:bg-pink-100 border-none px-3 py-1 font-bold">
+                Mais Vendido
+              </Badge>
+              {campaigns.some((c) => c.sku_id === matchingSku?.id) && (
+                <Badge className="w-fit bg-purple-600 hover:bg-purple-700 text-white border-none px-3 py-1 font-bold">
+                  Compra Coletiva
+                </Badge>
+              )}
+            </div>
 
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 leading-tight mb-3">
               {product.name}
@@ -277,6 +309,34 @@ export default function StorefrontProduct() {
                 ))}
               </div>
             )}
+
+            {(() => {
+              const skuCampaign = campaigns.find((c: any) => c.sku_id === matchingSku?.id)
+              if (!skuCampaign) return null
+
+              return (
+                <div className="bg-purple-50 p-5 rounded-2xl border border-purple-100 flex flex-col gap-3 mt-4 mb-4">
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-purple-800">Progresso da Campanha</span>
+                    <span className="text-purple-900">
+                      {skuCampaign.total_reserved} / {skuCampaign.target_quantity}
+                    </span>
+                  </div>
+                  <Progress
+                    value={Math.min(
+                      (skuCampaign.total_reserved / skuCampaign.target_quantity) * 100,
+                      100,
+                    )}
+                    className="h-2.5 bg-purple-200"
+                  />
+                  <p className="text-sm font-semibold text-purple-700 mt-1">
+                    {skuCampaign.total_reserved >= skuCampaign.target_quantity
+                      ? 'Meta atingida!'
+                      : `Faltam ${skuCampaign.target_quantity - skuCampaign.total_reserved} unidades para a meta ser atingida!`}
+                  </p>
+                </div>
+              )
+            })()}
 
             <div className="mt-4 prose prose-sm text-slate-600 mb-8 hidden md:block">
               <p>
