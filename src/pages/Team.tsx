@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { UserPlus, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { UserPlus, Pencil, Trash2, Loader2, Search, MailQuestion } from 'lucide-react'
 
 export default function Team() {
   const { profile, organization } = useAuth()
@@ -41,20 +41,11 @@ export default function Team() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({ email: '', full_name: '', role: 'member' })
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [successData, setSuccessData] = useState<{
-    email: string
-    password: string
-    name: string
-  } | null>(null)
 
-  const generatePassword = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
-    let pass = ''
-    for (let i = 0; i < 12; i++) {
-      pass += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    return pass
-  }
+  // Pagination & Search
+  const [searchTerm, setSearchTerm] = useState('')
+  const [page, setPage] = useState(1)
+  const ITEMS_PER_PAGE = 10
 
   useEffect(() => {
     if (organization?.id) fetchMembers()
@@ -70,17 +61,25 @@ export default function Team() {
     setLoading(false)
   }
 
+  const filteredMembers = useMemo(() => {
+    return members.filter((m) => {
+      const nameMatch = (m.full_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+      const emailMatch = (m.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+      return nameMatch || emailMatch
+    })
+  }, [members, searchTerm])
+
+  const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE)
+  const paginatedMembers = filteredMembers.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
-    const password = generatePassword()
-    const payload = { ...formData, password }
-
-    const { data, error } = await supabase.functions.invoke('invite-user', { body: payload })
+    const { data, error } = await supabase.functions.invoke('invite-user', { body: formData })
     setIsSubmitting(false)
 
-    if (error || !data?.user) {
+    if (error) {
       toast({
         title: 'Erro ao convidar membro',
         description: error?.message || 'Falha ao enviar convite.',
@@ -90,7 +89,10 @@ export default function Team() {
     }
 
     setModalState('none')
-    setSuccessData({ email: formData.email, password, name: formData.full_name })
+    toast({
+      title: 'Convite enviado!',
+      description: 'O membro receberá um e-mail para acessar a conta.',
+    })
     fetchMembers()
   }
 
@@ -129,11 +131,13 @@ export default function Team() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto py-8 animate-fade-in-up">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 max-w-5xl mx-auto py-8 animate-fade-in-up">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Equipe</h1>
-          <p className="text-muted-foreground mt-1">Gerencie os membros da sua organização.</p>
+          <p className="text-muted-foreground mt-1">
+            Gerencie os membros e convites da sua organização.
+          </p>
         </div>
         <Button
           onClick={() => {
@@ -142,50 +146,84 @@ export default function Team() {
           }}
         >
           <UserPlus className="w-4 h-4 mr-2" />
-          Adicionar Membro
+          Convidar Membro
         </Button>
       </div>
 
       <Card>
+        <div className="p-4 border-b">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome ou e-mail..."
+              className="pl-9"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value)
+                setPage(1)
+              }}
+            />
+          </div>
+        </div>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
-                <TableHead>Função</TableHead>
+                <TableHead>Status / Função</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8">
-                    Carregando...
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                    Carregando membros...
                   </TableCell>
                 </TableRow>
-              ) : members.length === 0 ? (
+              ) : paginatedMembers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8">
+                  <TableCell colSpan={3} className="text-center py-12 text-muted-foreground">
                     Nenhum membro encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
-                members.map((member) => (
+                paginatedMembers.map((member) => (
                   <TableRow key={member.id}>
-                    <TableCell className="font-medium">
-                      {member.full_name || 'Usuário'}
-                      {member.id === profile?.id && (
-                        <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                          Você
-                        </span>
+                    <TableCell>
+                      <div className="font-medium text-foreground">
+                        {member.full_name || 'Usuário'}
+                        {member.id === profile?.id && (
+                          <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+                            Você
+                          </span>
+                        )}
+                      </div>
+                      {member.email && (
+                        <div className="text-sm text-muted-foreground">{member.email}</div>
                       )}
                     </TableCell>
                     <TableCell>
-                      {member.role === 'admin'
-                        ? 'Administrador'
-                        : member.role === 'seller'
-                          ? 'Vendedora'
-                          : 'Membro'}
+                      <div className="flex items-center gap-2">
+                        {member.role === 'admin' && (
+                          <span className="text-sm font-medium">Administrador</span>
+                        )}
+                        {member.role === 'seller' && (
+                          <span className="text-sm font-medium">Vendedora</span>
+                        )}
+                        {member.role === 'super_admin' && (
+                          <span className="text-sm font-medium">Super Admin</span>
+                        )}
+                        {member.role === 'member' && (
+                          <span className="text-sm font-medium">Membro</span>
+                        )}
+                        {!member.updated_at && member.id !== profile?.id && (
+                          <span className="inline-flex items-center text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full ml-2">
+                            <MailQuestion className="w-3 h-3 mr-1" />
+                            Pendente
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button
@@ -194,7 +232,7 @@ export default function Team() {
                         onClick={() => {
                           setEditingId(member.id)
                           setFormData({
-                            email: '',
+                            email: member.email || '',
                             full_name: member.full_name || '',
                             role: member.role || 'member',
                           })
@@ -214,6 +252,32 @@ export default function Team() {
               )}
             </TableBody>
           </Table>
+
+          {!loading && totalPages > 1 && (
+            <div className="flex items-center justify-between p-4 border-t">
+              <span className="text-sm text-muted-foreground">
+                Página {page} de {totalPages}
+              </span>
+              <div className="space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -221,12 +285,12 @@ export default function Team() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {modalState === 'invite' ? 'Adicionar Membro' : 'Editar Membro'}
+              {modalState === 'invite' ? 'Convidar Novo Membro' : 'Editar Membro'}
             </DialogTitle>
             <DialogDescription>
               {modalState === 'invite'
-                ? 'Convide um novo membro para sua equipe.'
-                : 'Atualize os dados e acesso do membro.'}
+                ? 'Enviaremos um e-mail com instruções para acessar a plataforma.'
+                : 'Atualize as informações e permissões de acesso deste membro.'}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -235,10 +299,11 @@ export default function Team() {
           >
             {modalState === 'invite' && (
               <div className="space-y-2">
-                <Label>E-mail</Label>
+                <Label>E-mail do Membro</Label>
                 <Input
                   type="email"
                   required
+                  placeholder="exemplo@email.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
@@ -248,12 +313,13 @@ export default function Team() {
               <Label>Nome Completo</Label>
               <Input
                 required
+                placeholder="Nome do usuário"
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>Função</Label>
+              <Label>Função no Sistema</Label>
               <Select
                 value={formData.role}
                 onValueChange={(v) => setFormData({ ...formData, role: v })}
@@ -262,61 +328,22 @@ export default function Team() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">Membro</SelectItem>
-                  <SelectItem value="admin">Administrador</SelectItem>
-                  <SelectItem value="seller">Vendedora</SelectItem>
+                  <SelectItem value="member">Membro (Acesso Básico)</SelectItem>
+                  <SelectItem value="admin">Administrador (Acesso Total)</SelectItem>
+                  <SelectItem value="seller">Vendedora (Painel Restrito)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <DialogFooter>
+            <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => setModalState('none')}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Salvar
+                {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {modalState === 'invite' ? 'Enviar Convite' : 'Salvar'}
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!successData} onOpenChange={(o) => !o && setSuccessData(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Membro Adicionado com Sucesso</DialogTitle>
-            <DialogDescription>
-              As credenciais de acesso para {successData?.name} foram geradas. Guarde a senha
-              temporária, ela não será exibida novamente.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>E-mail:</Label>
-              <Input readOnly value={successData?.email || ''} />
-            </div>
-            <div className="space-y-2">
-              <Label>Senha Temporária:</Label>
-              <div className="flex gap-2">
-                <Input readOnly value={successData?.password || ''} />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    navigator.clipboard.writeText(successData?.password || '')
-                    toast({
-                      title: 'Senha copiada!',
-                      description: 'A senha foi copiada para a área de transferência.',
-                    })
-                  }}
-                >
-                  Copiar Senha
-                </Button>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setSuccessData(null)}>Fechar</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -7,6 +7,7 @@ import { AuthProvider } from '@/hooks/use-auth'
 import Layout from './components/Layout'
 import { AuthLayout } from './components/layouts/AuthLayout'
 import { AppLayout } from './components/layouts/AppLayout'
+import { ProtectedRoute } from './components/ProtectedRoute'
 
 import Index from './pages/Index'
 import SellerDashboard from './pages/seller/SellerDashboard'
@@ -69,16 +70,19 @@ const App = () => (
             </Route>
 
             {/* Master Admin Routes */}
-            <Route element={<MasterLayout />}>
-              <Route path="/master/dashboard" element={<MasterDashboard />} />
-              <Route path="/master/organizations" element={<MasterOrganizations />} />
-              <Route path="/master/users" element={<MasterUsers />} />
-              <Route path="/master/sellers/performance" element={<MasterSellerPerformance />} />
+            <Route element={<ProtectedRoute allowedRoles={['super_admin']} />}>
+              <Route element={<MasterLayout />}>
+                <Route path="/master/dashboard" element={<MasterDashboard />} />
+                <Route path="/master/organizations" element={<MasterOrganizations />} />
+                <Route path="/master/users" element={<MasterUsers />} />
+                <Route path="/master/sellers/performance" element={<MasterSellerPerformance />} />
+              </Route>
             </Route>
 
             {/* Authenticated App Routes */}
-            <Route element={<AppLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
+            <Route element={<ProtectedRoute allowedRoles={['admin', 'member', 'seller']} />}>
+              <Route element={<AppLayout />}>
+                <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/seller/dashboard" element={<SellerDashboard />} />
               <Route path="/admin/sellers/performance" element={<SellerPerformance />} />
               <Route path="/orders" element={<Orders />} />

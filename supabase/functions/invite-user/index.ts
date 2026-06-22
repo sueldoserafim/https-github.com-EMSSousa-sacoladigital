@@ -32,16 +32,17 @@ Deno.serve(async (req: Request) => {
       .single()
     if (!profile?.organization_id) throw new Error('No organization found')
 
-    const { email, full_name, role, password } = await req.json()
+    const { email, full_name, role } = await req.json()
 
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: newUser, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email,
-      password: password || 'TemporaryPassword123!',
-      email_confirm: true,
-      user_metadata: { full_name },
-    })
+      {
+        data: { full_name },
+        redirectTo: `${req.headers.get('origin') || 'https://saas-multi-tenant-auth-9509d.goskip.app'}/login`,
+      },
+    )
 
-    if (createError) throw createError
+    if (inviteError) throw inviteError
 
     // Wait a moment to ensure trigger handles new user creation
     await new Promise((resolve) => setTimeout(resolve, 500))

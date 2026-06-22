@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Outlet, Navigate, Link, useLocation, useNavigate } from 'react-router-dom'
+import { useState, useMemo } from 'react'
+import { Outlet, Navigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -10,7 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { supabase } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
   Settings,
@@ -29,7 +28,6 @@ import {
   DollarSign,
   Truck,
   PackageOpen,
-  Mail,
   Wallet,
   Archive,
   TrendingUp,
@@ -37,6 +35,8 @@ import {
   RefreshCcw,
   History,
   Workflow,
+  Mail,
+  AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -44,102 +44,17 @@ export function AppLayout() {
   const { user, profile, organization, loading, signOut } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
-  const navigate = useNavigate()
 
-  useEffect(() => {
-    if (!organization?.id) return
+  const trialDays = useMemo(() => {
+    if (!organization?.created_at) return 0
+    const createdDate = new Date(organization.created_at)
+    const currentDate = new Date()
+    const diffTime = Math.abs(currentDate.getTime() - createdDate.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return Math.max(0, 30 - diffDays)
+  }, [organization?.created_at])
 
-    const channel = supabase
-      .channel('automations-tracker')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `organization_id=eq.${organization.id}`,
-        },
-        async (payload) => {
-          const newRow = payload.new as any
-          const oldRow = payload.old as any
-
-          if (
-            newRow.status !== oldRow.status &&
-            (newRow.status === 'completed' ||
-              newRow.status === 'Entregue' ||
-              newRow.status === 'Concluído')
-          ) {
-            const { data: automations } = await supabase
-              .from('marketing_automations' as any)
-              .select('*')
-              .eq('organization_id', organization.id)
-              .eq('trigger_type', 'order_completed')
-              .eq('is_active', true)
-
-            if (automations && automations.length > 0) {
-              for (const auto of automations) {
-                const { data: customer } = await supabase
-                  .from('customers')
-                  .select('name, email')
-                  .eq('id', newRow.customer_id)
-                  .single()
-
-                if (customer && customer.email) {
-                  const content = auto.content
-                    .replace(/\{\{customer_name\}\}/g, customer.name || '')
-                    .replace(/\{\{order_number\}\}/g, newRow.order_number || '')
-
-                  const subject = auto.subject
-                    .replace(/\{\{customer_name\}\}/g, customer.name || '')
-                    .replace(/\{\{order_number\}\}/g, newRow.order_number || '')
-
-                  const { data: campaign } = await supabase
-                    .from('marketing_campaigns')
-                    .insert({
-                      organization_id: organization.id,
-                      name: `[Automação] Pedido ${newRow.order_number}`,
-                      subject,
-                      content,
-                      status: 'draft',
-                      target_customer_id: newRow.customer_id,
-                    } as any)
-                    .select()
-                    .single()
-
-                  if (campaign) {
-                    await supabase.functions.invoke('send-marketing-campaign', {
-                      body: { campaignId: campaign.id },
-                    })
-                  }
-                }
-              }
-            }
-          }
-        },
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [organization?.id])
-
-  useEffect(() => {
-    if (profile?.role === 'super_admin') {
-      if (!location.pathname.startsWith('/master')) {
-        navigate('/master/dashboard', { replace: true })
-      }
-    } else if (profile?.role === 'seller') {
-      const allowed = ['/seller/dashboard', '/orders', '/consignments']
-      if (!allowed.some((path) => location.pathname.startsWith(path))) {
-        navigate('/seller/dashboard', { replace: true })
-      }
-    } else if (profile && profile.role !== 'seller') {
-      if (location.pathname === '/seller/dashboard') {
-        navigate('/dashboard', { replace: true })
-      }
-    }
-  }, [location.pathname, profile, navigate])
+  const isExpired = organization?.plan_type === 'trial' && trialDays <= 0
 
   if (loading) {
     return (
@@ -233,7 +148,16 @@ export function AppLayout() {
               <span className="font-semibold text-sm text-foreground truncate">
                 {organization?.name || 'Minha Loja'}
               </span>
-              <span className="text-[11px] text-primary font-medium">Trial • 5 dias restantes</span>
+              <span
+                className={cn(
+                  'text-[11px] font-medium',
+                  isExpired ? 'text-destructive' : 'text-primary',
+                )}
+              >
+                {organization?.plan_type === 'trial'
+                  ? `Trial • ${trialDays} dias restantes`
+                  : organization?.plan_type?.toUpperCase()}
+              </span>
             </div>
           </div>
         </div>
@@ -337,8 +261,24 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8 animate-fade-in">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8 animate-fade-in relative flex flex-col">
+          {isExpired && (
+            <div className="mb-6 bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <div className="flex-1">
+                <span className="font-bold block text-sm">Plano de Teste Expirado</span>
+                <span className="text-sm opacity-90">
+                  As ações de criação e edição foram desabilitadas na sua conta.
+                </span>
+              </div>
+              <Button size="sm" variant="destructive">
+                Ver Planos
+              </Button>
+            </div>
+          )}
+          <div className={cn('flex-1', isExpired && 'pointer-events-none opacity-70 select-none')}>
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
