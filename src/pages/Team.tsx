@@ -41,6 +41,20 @@ export default function Team() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({ email: '', full_name: '', role: 'member' })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [successData, setSuccessData] = useState<{
+    email: string
+    password: string
+    name: string
+  } | null>(null)
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
+    let pass = ''
+    for (let i = 0; i < 12; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return pass
+  }
 
   useEffect(() => {
     if (organization?.id) fetchMembers()
@@ -59,7 +73,11 @@ export default function Team() {
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    const { data, error } = await supabase.functions.invoke('invite-user', { body: formData })
+
+    const password = generatePassword()
+    const payload = { ...formData, password }
+
+    const { data, error } = await supabase.functions.invoke('invite-user', { body: payload })
     setIsSubmitting(false)
 
     if (error || !data?.user) {
@@ -71,8 +89,8 @@ export default function Team() {
       return
     }
 
-    toast({ title: 'Convite enviado', description: 'Membro adicionado com sucesso.' })
     setModalState('none')
+    setSuccessData({ email: formData.email, password, name: formData.full_name })
     fetchMembers()
   }
 
@@ -162,7 +180,13 @@ export default function Team() {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell>{member.role === 'admin' ? 'Administrador' : 'Membro'}</TableCell>
+                    <TableCell>
+                      {member.role === 'admin'
+                        ? 'Administrador'
+                        : member.role === 'seller'
+                          ? 'Vendedora'
+                          : 'Membro'}
+                    </TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button
                         variant="ghost"
@@ -240,6 +264,7 @@ export default function Team() {
                 <SelectContent>
                   <SelectItem value="member">Membro</SelectItem>
                   <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="seller">Vendedora</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -252,6 +277,46 @@ export default function Team() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!successData} onOpenChange={(o) => !o && setSuccessData(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Membro Adicionado com Sucesso</DialogTitle>
+            <DialogDescription>
+              As credenciais de acesso para {successData?.name} foram geradas. Guarde a senha
+              temporária, ela não será exibida novamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>E-mail:</Label>
+              <Input readOnly value={successData?.email || ''} />
+            </div>
+            <div className="space-y-2">
+              <Label>Senha Temporária:</Label>
+              <div className="flex gap-2">
+                <Input readOnly value={successData?.password || ''} />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(successData?.password || '')
+                    toast({
+                      title: 'Senha copiada!',
+                      description: 'A senha foi copiada para a área de transferência.',
+                    })
+                  }}
+                >
+                  Copiar Senha
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setSuccessData(null)}>Fechar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

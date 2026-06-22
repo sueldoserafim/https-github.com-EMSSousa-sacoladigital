@@ -32,11 +32,11 @@ Deno.serve(async (req: Request) => {
       .single()
     if (!profile?.organization_id) throw new Error('No organization found')
 
-    const { email, full_name, role } = await req.json()
+    const { email, full_name, role, password } = await req.json()
 
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: 'TemporaryPassword123!',
+      password: password || 'TemporaryPassword123!',
       email_confirm: true,
       user_metadata: { full_name },
     })
@@ -62,6 +62,22 @@ Deno.serve(async (req: Request) => {
 
     if (newProfile?.organization_id && newProfile.organization_id !== profile.organization_id) {
       await supabaseAdmin.from('organizations').delete().eq('id', newProfile.organization_id)
+    }
+
+    if (role === 'seller') {
+      const slug =
+        full_name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '') +
+        '-' +
+        Math.random().toString(36).substring(2, 7)
+      await supabaseAdmin.from('sellers').insert({
+        organization_id: profile.organization_id,
+        user_id: newUser.user.id,
+        name: full_name,
+        slug: slug,
+      })
     }
 
     return new Response(JSON.stringify({ user: newUser.user }), {
