@@ -36,6 +36,10 @@ export function ReserveModal({ campaign, sellerId, onClose, onSuccess }: any) {
       const parsed = parseInt(quantity)
       if (isNaN(parsed) || parsed <= 0) throw new Error('Quantidade inválida')
 
+      if (new Date(campaign.deadline) < new Date()) {
+        throw new Error('O prazo para esta campanha já expirou.')
+      }
+
       const { data: existing } = await supabase
         .from('group_buying_reservations')
         .select('id')

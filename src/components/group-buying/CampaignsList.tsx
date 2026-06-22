@@ -45,12 +45,12 @@ export function CampaignsList({
     switch (status) {
       case 'active':
         return 'bg-blue-50 text-blue-700 border-blue-200'
+      case 'completed':
       case 'successful':
         return 'bg-green-50 text-green-700 border-green-200'
+      case 'cancelled':
       case 'failed':
         return 'bg-red-50 text-red-700 border-red-200'
-      case 'completed':
-        return 'bg-gray-100 text-gray-800 border-gray-300'
       default:
         return 'bg-gray-50 text-gray-700 border-gray-200'
     }
@@ -60,12 +60,12 @@ export function CampaignsList({
     switch (status) {
       case 'active':
         return 'Ativa'
-      case 'successful':
-        return 'Sucesso (PO Gerada)'
-      case 'failed':
-        return 'Falhou'
       case 'completed':
+      case 'successful':
         return 'Concluída'
+      case 'cancelled':
+      case 'failed':
+        return 'Cancelada'
       default:
         return status
     }
@@ -128,7 +128,11 @@ export function CampaignsList({
                 <TableCell className="text-right">
                   {c.status === 'active' &&
                     (isSeller ? (
-                      <Button size="sm" onClick={() => onReserve(c)}>
+                      <Button
+                        size="sm"
+                        onClick={() => onReserve(c)}
+                        disabled={new Date(c.deadline) < new Date()}
+                      >
                         {myReservation ? 'Alterar Reserva' : 'Reservar'}
                       </Button>
                     ) : (
