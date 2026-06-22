@@ -74,7 +74,9 @@ Deno.serve(async (req: Request) => {
       .not('email', 'is', null)
       .neq('email', '')
 
-    if (campaign.segment) {
+    if (campaign.target_customer_id) {
+      customersQuery = customersQuery.eq('id', campaign.target_customer_id)
+    } else if (campaign.segment) {
       customersQuery = customersQuery.eq('segment', campaign.segment)
     }
 

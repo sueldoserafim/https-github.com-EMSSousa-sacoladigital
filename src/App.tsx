@@ -34,6 +34,7 @@ import Consignments from './pages/Consignments'
 import DeliveriesMap from './pages/DeliveriesMap'
 import RouteHistory from './pages/RouteHistory'
 import Returns from './pages/Returns'
+import Automations from './pages/Automations'
 import StorefrontLayout from './pages/storefront/StorefrontLayout'
 import StorefrontIndex from './pages/storefront/StorefrontIndex'
 import StorefrontProduct from './pages/storefront/StorefrontProduct'
@@ -86,6 +87,7 @@ const App = () => (
               <Route path="/deliveries-map" element={<DeliveriesMap />} />
               <Route path="/route-history" element={<RouteHistory />} />
               <Route path="/returns" element={<Returns />} />
+              <Route path="/automations" element={<Automations />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />

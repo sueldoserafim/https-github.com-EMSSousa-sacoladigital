@@ -35,6 +35,7 @@ import {
   Map,
   RefreshCcw,
   History,
+  Workflow,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -43,6 +44,84 @@ export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!organization?.id) return
+
+    const channel = supabase
+      .channel('automations-tracker')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `organization_id=eq.${organization.id}`,
+        },
+        async (payload) => {
+          const newRow = payload.new as any
+          const oldRow = payload.old as any
+
+          if (
+            newRow.status !== oldRow.status &&
+            (newRow.status === 'completed' ||
+              newRow.status === 'Entregue' ||
+              newRow.status === 'Concluído')
+          ) {
+            const { data: automations } = await supabase
+              .from('marketing_automations' as any)
+              .select('*')
+              .eq('organization_id', organization.id)
+              .eq('trigger_type', 'order_completed')
+              .eq('is_active', true)
+
+            if (automations && automations.length > 0) {
+              for (const auto of automations) {
+                const { data: customer } = await supabase
+                  .from('customers')
+                  .select('name, email')
+                  .eq('id', newRow.customer_id)
+                  .single()
+
+                if (customer && customer.email) {
+                  const content = auto.content
+                    .replace(/\{\{customer_name\}\}/g, customer.name || '')
+                    .replace(/\{\{order_number\}\}/g, newRow.order_number || '')
+
+                  const subject = auto.subject
+                    .replace(/\{\{customer_name\}\}/g, customer.name || '')
+                    .replace(/\{\{order_number\}\}/g, newRow.order_number || '')
+
+                  const { data: campaign } = await supabase
+                    .from('marketing_campaigns')
+                    .insert({
+                      organization_id: organization.id,
+                      name: `[Automação] Pedido ${newRow.order_number}`,
+                      subject,
+                      content,
+                      status: 'draft',
+                      target_customer_id: newRow.customer_id,
+                    } as any)
+                    .select()
+                    .single()
+
+                  if (campaign) {
+                    await supabase.functions.invoke('send-marketing-campaign', {
+                      body: { campaignId: campaign.id },
+                    })
+                  }
+                }
+              }
+            }
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [organization?.id])
 
   useEffect(() => {
     if (profile?.role === 'seller') {
@@ -87,6 +166,7 @@ export function AppLayout() {
     { name: 'Compra Coletiva', href: '/group-buying', icon: Users },
     { name: 'Comissões', href: '/commissions', icon: Wallet },
     { name: 'Campanhas', href: '/campaigns', icon: Mail },
+    { name: 'Automações', href: '/automations', icon: Workflow },
     { name: 'Financeiro', href: '/finance', icon: DollarSign },
     { name: 'Equipe', href: '/team', icon: UserCog },
     { name: 'Calculadora', href: '/calculator', icon: Calculator },
