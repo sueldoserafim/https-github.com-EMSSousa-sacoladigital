@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Outlet, Navigate, Link, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Outlet, Navigate, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -31,6 +31,7 @@ import {
   Mail,
   Wallet,
   Archive,
+  TrendingUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -38,6 +39,20 @@ export function AppLayout() {
   const { user, profile, organization, loading, signOut } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (profile?.role === 'seller') {
+      const allowed = ['/seller/dashboard', '/orders', '/consignments']
+      if (!allowed.some((path) => location.pathname.startsWith(path))) {
+        navigate('/seller/dashboard', { replace: true })
+      }
+    } else if (profile && profile.role !== 'seller') {
+      if (location.pathname === '/seller/dashboard') {
+        navigate('/dashboard', { replace: true })
+      }
+    }
+  }, [location.pathname, profile, navigate])
 
   if (loading) {
     return (
@@ -51,7 +66,9 @@ export function AppLayout() {
     return <Navigate to="/login" replace />
   }
 
-  const navItems = [
+  const isSeller = profile?.role === 'seller'
+
+  const adminNavItems = [
     { name: 'Painel', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Produtos', href: '/products', icon: ShoppingBag },
     { name: 'Pedidos de Venda', href: '/orders', icon: ShoppingCart },
@@ -59,6 +76,7 @@ export function AppLayout() {
     { name: 'Pedidos de Compra', href: '/purchases', icon: PackageOpen },
     { name: 'Clientes', href: '/customers', icon: Users },
     { name: 'Vendedoras', href: '/sellers', icon: BadgeDollarSign },
+    { name: 'Ranking de Vendas', href: '/admin/sellers/performance', icon: TrendingUp },
     { name: 'Consignação', href: '/consignments', icon: Archive },
     { name: 'Compra Coletiva', href: '/group-buying', icon: Users },
     { name: 'Comissões', href: '/commissions', icon: Wallet },
@@ -69,6 +87,14 @@ export function AppLayout() {
     { name: 'Catálogo PDF', href: '/catalog', icon: FileText },
     { name: 'Configurações', href: '/settings', icon: Settings },
   ]
+
+  const sellerNavItems = [
+    { name: 'Meu Painel', href: '/seller/dashboard', icon: LayoutDashboard },
+    { name: 'Meus Pedidos', href: '/orders', icon: ShoppingCart },
+    { name: 'Minha Consignação', href: '/consignments', icon: Archive },
+  ]
+
+  const navItems = isSeller ? sellerNavItems : adminNavItems
 
   const getInitials = (name: string) => (name ? name.charAt(0).toUpperCase() : 'U')
 

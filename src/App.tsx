@@ -9,6 +9,8 @@ import { AuthLayout } from './components/layouts/AuthLayout'
 import { AppLayout } from './components/layouts/AppLayout'
 
 import Index from './pages/Index'
+import SellerDashboard from './pages/seller/SellerDashboard'
+import SellerPerformance from './pages/admin/SellerPerformance'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import Dashboard from './pages/Dashboard'
@@ -60,6 +62,8 @@ const App = () => (
             {/* Authenticated App Routes */}
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/seller/dashboard" element={<SellerDashboard />} />
+              <Route path="/admin/sellers/performance" element={<SellerPerformance />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/products" element={<Products />} />
               <Route path="/settings" element={<Settings />} />
