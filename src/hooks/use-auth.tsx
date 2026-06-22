@@ -20,6 +20,7 @@ interface AuthContextType {
   session: Session | null
   profile: UserProfile | null
   organization: Organization | null
+  isSuperAdmin: boolean
   loading: boolean
   signOut: () => Promise<{ error: any }>
 }
@@ -37,6 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [organization, setOrganization] = useState<Organization | null>(null)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const fetchProfileAndOrg = async (userId: string) => {
@@ -54,10 +56,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(rest as UserProfile)
         setOrganization(organizations as unknown as Organization)
       }
+
+      const { data: superAdminStatus } = await supabase.rpc('is_super_admin')
+      setIsSuperAdmin(!!superAdminStatus)
     } catch (err) {
       console.error('Error fetching profile', err)
       setProfile(null)
       setOrganization(null)
+      setIsSuperAdmin(false)
     }
   }
 
@@ -73,6 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!currentSession?.user) {
         setProfile(null)
         setOrganization(null)
+        setIsSuperAdmin(false)
         setLoading(false)
       }
     })
@@ -111,7 +118,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, organization, signOut, loading }}>
+    <AuthContext.Provider
+      value={{ user, session, profile, organization, isSuperAdmin, signOut, loading }}
+    >
       {children}
     </AuthContext.Provider>
   )

@@ -36,6 +36,7 @@ import {
 } from 'recharts'
 import { supabase } from '@/lib/supabase/client'
 import { format, subDays, startOfMonth, subMonths } from 'date-fns'
+import MasterDashboard from './master/MasterDashboard'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { RecentOrdersTable } from '@/components/dashboard/RecentOrdersTable'
 import {
@@ -50,7 +51,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 export default function Dashboard() {
-  const { organization, profile, loading: authLoading } = useAuth()
+  const { organization, profile, isSuperAdmin, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [alerts, setAlerts] = useState<any[]>([])
   const [conversionStats, setConversionStats] = useState({ visits: 0, conversionRate: 0 })
@@ -74,8 +75,13 @@ export default function Dashboard() {
   const { toast } = useToast()
 
   useEffect(() => {
-    if (authLoading || !organization) {
+    if (authLoading || (!organization && !isSuperAdmin)) {
       if (!authLoading) setLoading(false)
+      return
+    }
+
+    if (isSuperAdmin) {
+      setLoading(false)
       return
     }
 
@@ -337,7 +343,7 @@ export default function Dashboard() {
     }
 
     fetchDashboardData()
-  }, [organization, authLoading])
+  }, [organization, authLoading, isSuperAdmin])
 
   const handleSendOffer = async (customerId: string, customerName: string) => {
     toast({
@@ -373,6 +379,10 @@ export default function Dashboard() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
+  }
+
+  if (isSuperAdmin) {
+    return <MasterDashboard />
   }
 
   if (!organization) {
