@@ -33,6 +33,8 @@ import {
   Archive,
   TrendingUp,
   Map,
+  RefreshCcw,
+  History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -73,6 +75,7 @@ export function AppLayout() {
     { name: 'Painel', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Produtos', href: '/products', icon: ShoppingBag },
     { name: 'Pedidos de Venda', href: '/orders', icon: ShoppingCart },
+    { name: 'Devoluções e Trocas', href: '/returns', icon: RefreshCcw },
     { name: 'Fornecedores', href: '/suppliers', icon: Truck },
     { name: 'Pedidos de Compra', href: '/purchases', icon: PackageOpen },
     { name: 'Clientes', href: '/customers', icon: Users },
@@ -80,6 +83,7 @@ export function AppLayout() {
     { name: 'Ranking de Vendas', href: '/admin/sellers/performance', icon: TrendingUp },
     { name: 'Consignação', href: '/consignments', icon: Archive },
     { name: 'Mapa de Entregas', href: '/deliveries-map', icon: Map },
+    { name: 'Histórico de Rotas', href: '/route-history', icon: History },
     { name: 'Compra Coletiva', href: '/group-buying', icon: Users },
     { name: 'Comissões', href: '/commissions', icon: Wallet },
     { name: 'Campanhas', href: '/campaigns', icon: Mail },

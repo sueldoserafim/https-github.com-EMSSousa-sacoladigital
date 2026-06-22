@@ -32,6 +32,8 @@ import Sellers from './pages/Sellers'
 import GroupBuying from './pages/GroupBuying'
 import Consignments from './pages/Consignments'
 import DeliveriesMap from './pages/DeliveriesMap'
+import RouteHistory from './pages/RouteHistory'
+import Returns from './pages/Returns'
 import StorefrontLayout from './pages/storefront/StorefrontLayout'
 import StorefrontIndex from './pages/storefront/StorefrontIndex'
 import StorefrontProduct from './pages/storefront/StorefrontProduct'
@@ -82,6 +84,8 @@ const App = () => (
               <Route path="/group-buying" element={<GroupBuying />} />
               <Route path="/consignments" element={<Consignments />} />
               <Route path="/deliveries-map" element={<DeliveriesMap />} />
+              <Route path="/route-history" element={<RouteHistory />} />
+              <Route path="/returns" element={<Returns />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />

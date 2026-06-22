@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
 import { NewOrderModal } from '@/components/orders/NewOrderModal'
 import { OrderCard } from '@/components/orders/OrderCard'
+import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal'
 
 const STATUSES = [
   'Todos',
@@ -34,6 +35,7 @@ export default function Orders() {
   const [activeTab, setActiveTab] = useState('Todos')
   const [search, setSearch] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
 
   useEffect(() => {
     if (authLoading) return
@@ -50,6 +52,7 @@ export default function Orders() {
           *,
           customers(name, email, phone),
           order_items(
+            sku_id,
             quantity,
             price,
             products(name),
@@ -198,14 +201,29 @@ export default function Orders() {
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {filteredOrders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              onAdvance={handleAdvance}
-              onCancel={handleCancel}
-            />
+            <div key={order.id} className="relative group">
+              <div className="absolute right-4 top-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-white/90 backdrop-blur-sm shadow-sm hover:bg-white"
+                  onClick={() => setSelectedOrder(order)}
+                >
+                  Ver Detalhes
+                </Button>
+              </div>
+              <OrderCard order={order} onAdvance={handleAdvance} onCancel={handleCancel} />
+            </div>
           ))}
         </div>
+      )}
+
+      {selectedOrder && (
+        <OrderDetailsModal
+          open={!!selectedOrder}
+          onOpenChange={(open) => !open && setSelectedOrder(null)}
+          order={selectedOrder}
+        />
       )}
 
       {isModalOpen && (
