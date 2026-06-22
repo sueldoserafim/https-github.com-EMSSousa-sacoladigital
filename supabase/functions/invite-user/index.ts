@@ -34,13 +34,10 @@ Deno.serve(async (req: Request) => {
 
     const { email, full_name, role } = await req.json()
 
-    const { data: newUser, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      email,
-      {
-        data: { full_name },
-        redirectTo: `${req.headers.get('origin') || 'https://saas-multi-tenant-auth-9509d.goskip.app'}/login`,
-      },
-    )
+    const { data: newUser, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      data: { full_name },
+      redirectTo: `${req.headers.get('origin') || 'https://saas-multi-tenant-auth-9509d.goskip.app'}/login`,
+    })
 
     if (inviteError) throw inviteError
 
