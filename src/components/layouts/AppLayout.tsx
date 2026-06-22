@@ -124,7 +124,11 @@ export function AppLayout() {
   }, [organization?.id])
 
   useEffect(() => {
-    if (profile?.role === 'seller') {
+    if (profile?.role === 'super_admin') {
+      if (!location.pathname.startsWith('/master')) {
+        navigate('/master/dashboard', { replace: true })
+      }
+    } else if (profile?.role === 'seller') {
       const allowed = ['/seller/dashboard', '/orders', '/consignments']
       if (!allowed.some((path) => location.pathname.startsWith(path))) {
         navigate('/seller/dashboard', { replace: true })

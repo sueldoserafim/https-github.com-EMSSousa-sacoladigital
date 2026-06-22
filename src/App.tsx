@@ -35,6 +35,10 @@ import DeliveriesMap from './pages/DeliveriesMap'
 import RouteHistory from './pages/RouteHistory'
 import Returns from './pages/Returns'
 import Automations from './pages/Automations'
+import { MasterLayout } from './components/layouts/MasterLayout'
+import MasterDashboard from './pages/master/MasterDashboard'
+import MasterOrganizations from './pages/master/MasterOrganizations'
+import MasterUsers from './pages/master/MasterUsers'
 import StorefrontLayout from './pages/storefront/StorefrontLayout'
 import StorefrontIndex from './pages/storefront/StorefrontIndex'
 import StorefrontProduct from './pages/storefront/StorefrontProduct'
@@ -61,6 +65,13 @@ const App = () => (
             <Route element={<AuthLayout />}>
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUp />} />
+            </Route>
+
+            {/* Master Admin Routes */}
+            <Route element={<MasterLayout />}>
+              <Route path="/master/dashboard" element={<MasterDashboard />} />
+              <Route path="/master/organizations" element={<MasterOrganizations />} />
+              <Route path="/master/users" element={<MasterUsers />} />
             </Route>
 
             {/* Authenticated App Routes */}
