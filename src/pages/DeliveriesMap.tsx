@@ -1,9 +1,256 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Map, Navigation, MapPin } from 'lucide-react'
+import { Navigation, Store } from 'lucide-react'
+
+// Technical Asset Fix: Fix for the common "broken marker icon" issue in React/Next.js environments
+// by explicitly re-configuring the default marker icon paths (icon, iconRetina, and shadow)
+const defaultMarkerIcon = {
+  icon: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  iconRetina: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  shadow: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+}
+
+function getTileCoords(lat: number, lng: number, zoom: number) {
+  const n = Math.pow(2, zoom)
+  const x = ((lng + 180) / 360) * n
+  const latRad = (lat * Math.PI) / 180
+  const y = ((1.0 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2.0) * n
+  return { x, y }
+}
+
+function getPixelsFromCoords(
+  lat: number,
+  lng: number,
+  zoom: number,
+  centerCoords: { x: number; y: number },
+) {
+  const coords = getTileCoords(lat, lng, zoom)
+  return {
+    x: (coords.x - centerCoords.x) * 256,
+    y: (coords.y - centerCoords.y) * 256,
+  }
+}
+
+function Polyline({
+  positions,
+  zoom,
+  centerCoords,
+}: {
+  positions: { lat: number; lng: number }[]
+  zoom: number
+  centerCoords: { x: number; y: number }
+}) {
+  if (positions.length < 2) return null
+
+  const points = positions
+    .map((pos) => {
+      const px = getPixelsFromCoords(pos.lat, pos.lng, zoom, centerCoords)
+      return `${px.x},${px.y}`
+    })
+    .join(' ')
+
+  return (
+    <svg className="absolute overflow-visible pointer-events-none" style={{ left: 0, top: 0 }}>
+      <polyline
+        points={points}
+        fill="none"
+        stroke="#2563eb"
+        strokeWidth="4"
+        strokeDasharray="6 6"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function InteractiveMap({
+  centerLat,
+  centerLng,
+  zoom = 13,
+  storeLocation,
+  orders,
+  suggestedRoute,
+}: any) {
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const lastMouse = useRef({ x: 0, y: 0 })
+  const [activePopup, setActivePopup] = useState<string | null>(null)
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true)
+    lastMouse.current = { x: e.clientX, y: e.clientY }
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return
+    const dx = e.clientX - lastMouse.current.x
+    const dy = e.clientY - lastMouse.current.y
+    setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }))
+    lastMouse.current = { x: e.clientX, y: e.clientY }
+  }
+
+  const handleMouseUp = () => setIsDragging(false)
+
+  const centerCoords = getTileCoords(centerLat, centerLng, zoom)
+
+  const TILE_SIZE = 256
+  const tiles = []
+  const startX = Math.floor(centerCoords.x) - 4
+  const endX = Math.floor(centerCoords.x) + 4
+  const startY = Math.floor(centerCoords.y) - 4
+  const endY = Math.floor(centerCoords.y) + 4
+
+  for (let x = startX; x <= endX; x++) {
+    for (let y = startY; y <= endY; y++) {
+      const left = (x - centerCoords.x) * TILE_SIZE
+      const top = (y - centerCoords.y) * TILE_SIZE
+      tiles.push({ x, y, left, top })
+    }
+  }
+
+  let routePositions = []
+  if (suggestedRoute && suggestedRoute.length > 0 && storeLocation) {
+    routePositions = [
+      { lat: storeLocation.lat, lng: storeLocation.lng },
+      ...suggestedRoute.map((o: any) => ({ lat: o.delivery_lat, lng: o.delivery_lng })),
+    ]
+  }
+
+  return (
+    <div
+      className={`relative w-full h-full overflow-hidden bg-[#e5e3df] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      <div
+        className="absolute top-1/2 left-1/2"
+        style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}
+      >
+        {tiles.map((t) => {
+          const s = String.fromCharCode(97 + ((t.x + t.y) % 3))
+          return (
+            <img
+              key={`${zoom}-${t.x}-${t.y}`}
+              src={`https://${s}.tile.openstreetmap.org/${zoom}/${t.x}/${t.y}.png`}
+              className="absolute max-w-none pointer-events-none"
+              style={{
+                left: t.left,
+                top: t.top,
+                width: TILE_SIZE,
+                height: TILE_SIZE,
+              }}
+              draggable={false}
+              alt=""
+            />
+          )
+        })}
+
+        {routePositions.length > 0 && (
+          <Polyline positions={routePositions} zoom={zoom} centerCoords={centerCoords} />
+        )}
+
+        {storeLocation &&
+          (() => {
+            const px = getPixelsFromCoords(storeLocation.lat, storeLocation.lng, zoom, centerCoords)
+            return (
+              <div
+                className="absolute flex flex-col items-center justify-end z-20 group"
+                style={{
+                  left: px.x,
+                  top: px.y,
+                  transform: 'translate(-50%, -100%)',
+                }}
+              >
+                <div className="bg-primary text-white p-2 rounded-full shadow-lg border-2 border-white relative">
+                  <Store className="w-5 h-5" />
+                  <img
+                    src={defaultMarkerIcon.shadow}
+                    className="absolute -z-10 top-2 left-0 pointer-events-none opacity-50"
+                    alt=""
+                  />
+                </div>
+                <div className="absolute bottom-full mb-2 w-max bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                  Loja Central
+                </div>
+              </div>
+            )
+          })()}
+
+        {orders.map((o: any) => {
+          const px = getPixelsFromCoords(o.delivery_lat, o.delivery_lng, zoom, centerCoords)
+          const isPopupOpen = activePopup === o.id
+
+          return (
+            <div
+              key={o.id}
+              className="absolute flex flex-col items-center justify-end z-10"
+              style={{
+                left: px.x,
+                top: px.y,
+                transform: 'translate(-50%, -100%)',
+              }}
+            >
+              <div
+                className="relative cursor-pointer hover:scale-110 transition-transform"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setActivePopup(isPopupOpen ? null : o.id)
+                }}
+              >
+                <img
+                  src={defaultMarkerIcon.icon}
+                  alt="Marker"
+                  className="relative z-10 w-[25px] h-[41px] max-w-none"
+                />
+                <img
+                  src={defaultMarkerIcon.shadow}
+                  alt="Shadow"
+                  className="absolute top-0 left-0 -z-10 w-[41px] h-[41px] max-w-none"
+                />
+              </div>
+
+              {isPopupOpen && (
+                <div
+                  className="absolute bottom-full mb-1 w-64 bg-white border border-border rounded-lg shadow-xl z-50 p-3 flex flex-col gap-1 cursor-auto text-left"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex justify-between items-start">
+                    <p className="font-bold text-sm text-foreground leading-tight">
+                      {o.customers?.name || 'Cliente Desconhecido'}
+                    </p>
+                    <button
+                      onClick={() => setActivePopup(null)}
+                      className="text-muted-foreground hover:text-foreground shrink-0 ml-2"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                  <p
+                    className="text-xs text-muted-foreground mt-1 line-clamp-2"
+                    title={o.delivery_address}
+                  >
+                    {o.delivery_address}
+                  </p>
+                  <div className="mt-2 font-semibold text-primary">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                      o.total || 0,
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 export default function DeliveriesMap() {
   const { organization } = useAuth()
@@ -86,39 +333,16 @@ export default function DeliveriesMap() {
     setSuggestedRoute(route)
   }
 
-  const points = orders.map((o) => ({
-    lat: o.delivery_lat,
-    lng: o.delivery_lng,
-    id: o.id,
-    type: 'order',
-    order: o,
-  }))
-  if (logisticsSettings?.store_lat) {
-    points.push({
-      lat: logisticsSettings.store_lat,
-      lng: logisticsSettings.store_lng,
-      id: 'store',
-      type: 'store',
-      order: null,
-    })
+  let centerLat = -23.5505
+  let centerLng = -46.6333
+
+  if (logisticsSettings?.store_lat && logisticsSettings?.store_lng) {
+    centerLat = logisticsSettings.store_lat
+    centerLng = logisticsSettings.store_lng
+  } else if (orders.length > 0) {
+    centerLat = orders[0].delivery_lat
+    centerLng = orders[0].delivery_lng
   }
-
-  let minLat = points.length > 0 ? Math.min(...points.map((p) => p.lat)) : 0
-  let maxLat = points.length > 0 ? Math.max(...points.map((p) => p.lat)) : 0
-  let minLng = points.length > 0 ? Math.min(...points.map((p) => p.lng)) : 0
-  let maxLng = points.length > 0 ? Math.max(...points.map((p) => p.lng)) : 0
-
-  const latPad = (maxLat - minLat) * 0.1 || 0.01
-  const lngPad = (maxLng - minLng) * 0.1 || 0.01
-  minLat -= latPad
-  maxLat += latPad
-  minLng -= lngPad
-  maxLng += lngPad
-
-  const getX = (lng: number) => `${((lng - minLng) / (maxLng - minLng)) * 100}%`
-  const getY = (lat: number) => `${100 - ((lat - minLat) / (maxLat - minLat)) * 100}%`
-  const getRawX = (lng: number) => ((lng - minLng) / (maxLng - minLng)) * 100
-  const getRawY = (lat: number) => 100 - ((lat - minLat) / (maxLat - minLat)) * 100
 
   return (
     <div className="space-y-6">
@@ -134,90 +358,30 @@ export default function DeliveriesMap() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 relative overflow-hidden bg-slate-100 min-h-[500px]">
+        <Card className="lg:col-span-2 relative overflow-hidden bg-slate-100 min-h-[600px] flex flex-col p-0">
           {loading ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
+            <div className="flex items-center justify-center flex-1 text-muted-foreground">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>
-          ) : points.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <Map className="w-16 h-16 opacity-20 mb-4" />
-              <p>Nenhuma entrega com coordenadas encontrada.</p>
-            </div>
           ) : (
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: 'radial-gradient(circle, #cbd5e1 1px, transparent 1px)',
-                backgroundSize: '20px 20px',
-              }}
-            >
-              {suggestedRoute.length > 0 && (
-                <svg
-                  className="absolute inset-0 w-full h-full pointer-events-none"
-                  viewBox="0 0 100 100"
-                  preserveAspectRatio="none"
-                >
-                  <polyline
-                    points={`
-                               ${getRawX(logisticsSettings.store_lng)},${getRawY(logisticsSettings.store_lat)}
-                               ${suggestedRoute.map((o) => ` ${getRawX(o.delivery_lng)},${getRawY(o.delivery_lat)}`).join('')}
-                            `}
-                    fill="none"
-                    stroke="#be185d"
-                    strokeWidth="0.5"
-                    strokeDasharray="1 1"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </svg>
-              )}
-
-              {logisticsSettings?.store_lat && (
-                <div
-                  className="absolute w-8 h-8 -ml-4 -mt-8 flex flex-col items-center justify-end group z-20"
-                  style={{
-                    left: getX(logisticsSettings.store_lng),
-                    top: getY(logisticsSettings.store_lat),
-                  }}
-                >
-                  <div className="bg-primary text-white p-1.5 rounded-full shadow-lg border-2 border-white">
-                    <MapPin className="w-5 h-5 fill-primary text-white" />
-                  </div>
-                  <div className="absolute bottom-full mb-2 w-max bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                    Minha Loja
-                  </div>
-                </div>
-              )}
-
-              {orders.map((o) => {
-                const routeIndex = suggestedRoute.findIndex((r) => r.id === o.id)
-                return (
-                  <div
-                    key={o.id}
-                    className="absolute w-6 h-6 -ml-3 -mt-6 flex flex-col items-center justify-end group z-10"
-                    style={{ left: getX(o.delivery_lng), top: getY(o.delivery_lat) }}
-                  >
-                    <div className="bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center relative w-6 h-6 border-2 border-white">
-                      <MapPin className="w-4 h-4 fill-blue-600 text-white" />
-                      {routeIndex >= 0 && (
-                        <span className="absolute -top-2 -right-2 bg-white text-primary text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-primary">
-                          {routeIndex + 1}
-                        </span>
-                      )}
-                    </div>
-                    <div className="absolute bottom-full mb-2 w-48 bg-white border text-slate-800 text-xs p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-xl z-50">
-                      <p className="font-bold text-primary">{o.order_number}</p>
-                      <p className="font-semibold">{o.customers?.name}</p>
-                      <p className="text-muted-foreground truncate">{o.delivery_address}</p>
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="flex-1 w-full relative">
+              <InteractiveMap
+                centerLat={centerLat}
+                centerLng={centerLng}
+                zoom={13}
+                storeLocation={
+                  logisticsSettings?.store_lat
+                    ? { lat: logisticsSettings.store_lat, lng: logisticsSettings.store_lng }
+                    : null
+                }
+                orders={orders}
+                suggestedRoute={suggestedRoute}
+              />
             </div>
           )}
         </Card>
 
-        <Card className="flex flex-col h-[500px] lg:h-auto">
+        <Card className="flex flex-col h-[600px] lg:h-auto">
           <CardHeader className="border-b">
             <CardTitle>Sequência Sugerida</CardTitle>
             <CardDescription>Ordem otimizada de entrega</CardDescription>
@@ -234,7 +398,7 @@ export default function DeliveriesMap() {
               <div className="space-y-4">
                 <div className="flex gap-3 items-center text-sm font-medium text-primary bg-primary/5 p-3 rounded-lg border border-primary/10">
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                    <MapPin className="w-4 h-4" />
+                    <Store className="w-4 h-4" />
                   </div>
                   <div>
                     <p className="font-bold">Minha Loja</p>
@@ -244,7 +408,7 @@ export default function DeliveriesMap() {
                 {suggestedRoute.map((o, i) => (
                   <div
                     key={o.id}
-                    className="flex gap-3 items-start text-sm p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                    className="flex gap-3 items-start text-sm p-2 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100"
                   >
                     <div className="w-8 h-8 shrink-0 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs border border-blue-200">
                       {i + 1}
