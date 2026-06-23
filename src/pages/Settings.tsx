@@ -251,11 +251,11 @@ export default function Settings() {
     if (!storeAddress) return
     setIsSearchingAddress(true)
     try {
-      console.log(storeAddress)
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(storeAddress)}`,
       )
       const data = await res.json()
+      console.log(data)
       if (data && data.length > 0) {
         setStoreLat(parseFloat(data[0].lat))
         setStoreLng(parseFloat(data[0].lon))
