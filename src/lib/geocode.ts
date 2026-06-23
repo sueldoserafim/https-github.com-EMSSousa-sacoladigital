@@ -10,6 +10,7 @@ export async function geocodeAddress(
     let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanAddress)}&limit=1`
     let response = await fetch(url, {
       headers: {
+        'User-Agent': 'SacolaDigital/1.0 (sueldo@suportesigma.com)',
         'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
       },
     })
