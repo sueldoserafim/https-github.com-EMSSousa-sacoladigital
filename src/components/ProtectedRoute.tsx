@@ -23,19 +23,31 @@ export function ProtectedRoute({ allowedRoles = [] }: { allowedRoles?: string[] 
     if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
       if (role === 'super_admin') return <Navigate to="/master/dashboard" replace />
       if (role === 'seller') {
-        const sellerAllowed = ['/seller/dashboard', '/orders', '/consignments']
+        const sellerAllowed = [
+          '/seller/dashboard',
+          '/orders',
+          '/consignments',
+          '/tracking/delivery',
+        ]
         if (!sellerAllowed.some((path) => location.pathname.startsWith(path))) {
           return <Navigate to="/seller/dashboard" replace />
         }
+      } else if (role === 'delivery') {
+        return <Navigate to="/tracking/delivery" replace />
       } else {
         return <Navigate to="/dashboard" replace />
       }
     }
 
     if (role === 'seller') {
-      const sellerAllowed = ['/seller/dashboard', '/orders', '/consignments']
+      const sellerAllowed = ['/seller/dashboard', '/orders', '/consignments', '/tracking/delivery']
       if (!sellerAllowed.some((path) => location.pathname.startsWith(path))) {
         return <Navigate to="/seller/dashboard" replace />
+      }
+    } else if (role === 'delivery') {
+      const deliveryAllowed = ['/tracking/delivery']
+      if (!deliveryAllowed.some((path) => location.pathname.startsWith(path))) {
+        return <Navigate to="/tracking/delivery" replace />
       }
     }
   }

@@ -36,6 +36,7 @@ import DeliveriesMap from './pages/DeliveriesMap'
 import RouteHistory from './pages/RouteHistory'
 import Returns from './pages/Returns'
 import Automations from './pages/Automations'
+import DeliveryTracking from './pages/DeliveryTracking'
 import { MasterLayout } from './components/layouts/MasterLayout'
 import MasterDashboard from './pages/master/MasterDashboard'
 import MasterOrganizations from './pages/master/MasterOrganizations'
@@ -84,9 +85,12 @@ const App = () => (
             </Route>
 
             {/* Authenticated App Routes */}
-            <Route element={<ProtectedRoute allowedRoles={['admin', 'member', 'seller']} />}>
+            <Route
+              element={<ProtectedRoute allowedRoles={['admin', 'member', 'seller', 'delivery']} />}
+            >
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/tracking/delivery" element={<DeliveryTracking />} />
                 <Route path="/seller/dashboard" element={<SellerDashboard />} />
                 <Route path="/admin/sellers/performance" element={<SellerPerformance />} />
                 <Route path="/orders" element={<Orders />} />
