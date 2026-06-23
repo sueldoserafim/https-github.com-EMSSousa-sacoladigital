@@ -1,14 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Navigation, Store, Loader2 } from 'lucide-react'
+import { DeliveriesPanel } from '@/components/deliveries/DeliveriesPanel'
+import { Store } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { getOptimizedRoute } from '@/lib/routing'
 
-// Technical Asset Fix: Fix for the common "broken marker icon" issue in React/Next.js environments
-// by explicitly re-configuring the default marker icon paths (icon, iconRetina, and shadow)
 const defaultMarkerIcon = {
   icon: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
   iconRetina: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
@@ -75,11 +72,12 @@ function InteractiveMap({
   storeLocation,
   orders,
   routePoints,
+  activeOrderId,
+  onOrderClick,
 }: any) {
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const lastMouse = useRef({ x: 0, y: 0 })
-  const [activePopup, setActivePopup] = useState<string | null>(null)
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true)
@@ -112,6 +110,8 @@ function InteractiveMap({
       tiles.push({ x, y, left, top })
     }
   }
+
+  const validOrders = orders.filter((o: any) => o.lat != null && o.lng != null)
 
   return (
     <div
@@ -160,7 +160,7 @@ function InteractiveMap({
                   transform: 'translate(-50%, -100%)',
                 }}
               >
-                <div className="bg-primary text-white p-2 rounded-full shadow-lg border-2 border-white relative">
+                <div className="bg-blue-600 text-white p-2 rounded-full shadow-lg border-2 border-white relative">
                   <Store className="w-5 h-5" />
                   <img
                     src={defaultMarkerIcon.shadow}
@@ -169,15 +169,15 @@ function InteractiveMap({
                   />
                 </div>
                 <div className="absolute bottom-full mb-2 w-max bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                  Loja Central
+                  Ponto de Origem
                 </div>
               </div>
             )
           })()}
 
-        {orders.map((o: any) => {
-          const px = getPixelsFromCoords(o.delivery_lat, o.delivery_lng, zoom, centerCoords)
-          const isPopupOpen = activePopup === o.id
+        {validOrders.map((o: any) => {
+          const px = getPixelsFromCoords(o.lat, o.lng, zoom, centerCoords)
+          const isPopupOpen = activeOrderId === o.id
 
           return (
             <div
@@ -190,16 +190,20 @@ function InteractiveMap({
               }}
             >
               <div
-                className="relative cursor-pointer hover:scale-110 transition-transform"
+                className={`relative cursor-pointer transition-transform ${isPopupOpen ? 'scale-125 z-50' : 'hover:scale-110'}`}
                 onClick={(e) => {
                   e.stopPropagation()
-                  setActivePopup(isPopupOpen ? null : o.id)
+                  onOrderClick(isPopupOpen ? null : o.id)
                 }}
               >
+                <div
+                  className={`absolute -inset-1 rounded-full blur-sm opacity-40 ${isPopupOpen ? 'bg-primary' : 'hidden'}`}
+                ></div>
                 <img
                   src={defaultMarkerIcon.icon}
                   alt="Marker"
                   className="relative z-10 w-[25px] h-[41px] max-w-none"
+                  style={{ filter: isPopupOpen ? 'hue-rotate(150deg)' : 'none' }}
                 />
                 <img
                   src={defaultMarkerIcon.shadow}
@@ -218,17 +222,14 @@ function InteractiveMap({
                       {o.customers?.name || 'Cliente Desconhecido'}
                     </p>
                     <button
-                      onClick={() => setActivePopup(null)}
+                      onClick={() => onOrderClick(null)}
                       className="text-muted-foreground hover:text-foreground shrink-0 ml-2"
                     >
                       &times;
                     </button>
                   </div>
-                  <p
-                    className="text-xs text-muted-foreground mt-1 line-clamp-2"
-                    title={o.delivery_address}
-                  >
-                    {o.delivery_address}
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2" title={o.address}>
+                    {o.address}
                   </p>
                   <div className="mt-2 font-semibold text-primary">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
@@ -248,11 +249,11 @@ function InteractiveMap({
 export default function DeliveriesMap() {
   const { organization } = useAuth()
   const [orders, setOrders] = useState<any[]>([])
-  const [logisticsSettings, setLogisticsSettings] = useState<any>(null)
+  const [storeLocation, setStoreLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [loading, setLoading] = useState(true)
-  const [suggestedRoute, setSuggestedRoute] = useState<any[]>([])
   const [routePoints, setRoutePoints] = useState<{ lat: number; lng: number }[]>([])
   const [isRouting, setIsRouting] = useState(false)
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -263,23 +264,35 @@ export default function DeliveriesMap() {
 
   const loadData = async () => {
     setLoading(true)
-    const [ordersRes, logRes] = await Promise.all([
-      supabase
-        .from('orders')
-        .select('*, customers(name)')
-        .eq('organization_id', organization.id)
-        .eq('status', 'Novo')
-        .not('delivery_lat', 'is', null)
-        .not('delivery_lng', 'is', null),
-      supabase
-        .from('organization_logistics_settings')
-        .select('*')
-        .eq('organization_id', organization.id)
-        .maybeSingle(),
-    ])
 
-    if (ordersRes.data) setOrders(ordersRes.data)
-    if (logRes.data) setLogisticsSettings(logRes.data)
+    // Fetch Organization Location
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('lat, lng')
+      .eq('id', organization?.id)
+      .single()
+
+    // Fetch Orders with Customers Geodata
+    const { data: ordersData } = await supabase
+      .from('orders')
+      .select('*, customers(name, address, lat, lng)')
+      .in('status', ['Novo', 'Confirmado'])
+      .eq('organization_id', organization?.id)
+
+    if (orgData?.lat && orgData?.lng) {
+      setStoreLocation({ lat: orgData.lat, lng: orgData.lng })
+    }
+
+    if (ordersData) {
+      const mappedOrders = ordersData.map((o) => ({
+        ...o,
+        address: o.customers?.address || o.delivery_address,
+        lat: o.customers?.lat ?? o.delivery_lat,
+        lng: o.customers?.lng ?? o.delivery_lng,
+      }))
+      setOrders(mappedOrders)
+    }
+
     setLoading(false)
   }
 
@@ -297,13 +310,14 @@ export default function DeliveriesMap() {
   }
 
   const handleSuggestRoute = async () => {
-    if (!logisticsSettings?.store_lat || !logisticsSettings?.store_lng || orders.length === 0)
-      return
+    const withCoords = orders.filter((o) => o.lat != null && o.lng != null)
+
+    if (!storeLocation || withCoords.length === 0) return
 
     setIsRouting(true)
-    const unvisited = [...orders]
+    const unvisited = [...withCoords]
     const route = []
-    let currentPos = { lat: logisticsSettings.store_lat, lng: logisticsSettings.store_lng }
+    let currentPos = storeLocation
 
     while (unvisited.length > 0) {
       let nearestIdx = 0
@@ -312,8 +326,8 @@ export default function DeliveriesMap() {
         const d = getDistanceFromLatLonInKm(
           currentPos.lat,
           currentPos.lng,
-          unvisited[i].delivery_lat,
-          unvisited[i].delivery_lng,
+          unvisited[i].lat,
+          unvisited[i].lng,
         )
         if (d < minDist) {
           minDist = d
@@ -322,15 +336,13 @@ export default function DeliveriesMap() {
       }
       route.push(unvisited[nearestIdx])
       currentPos = {
-        lat: unvisited[nearestIdx].delivery_lat,
-        lng: unvisited[nearestIdx].delivery_lng,
+        lat: unvisited[nearestIdx].lat,
+        lng: unvisited[nearestIdx].lng,
       }
       unvisited.splice(nearestIdx, 1)
     }
-    setSuggestedRoute(route)
 
-    const storeLocation = { lat: logisticsSettings.store_lat, lng: logisticsSettings.store_lng }
-    const waypoints = route.map((o) => ({ lat: o.delivery_lat, lng: o.delivery_lng }))
+    const waypoints = route.map((o) => ({ lat: o.lat, lng: o.lng }))
 
     try {
       const osrmPoints = await getOptimizedRoute(storeLocation, waypoints)
@@ -343,8 +355,7 @@ export default function DeliveriesMap() {
       if (error.message === 'RATE_LIMIT') {
         toast({
           title: 'Aviso',
-          description:
-            'Routing service temporarily unavailable due to high demand. Please try again in a moment.',
+          description: 'Serviço de rotas temporariamente indisponível devido à alta demanda.',
           variant: 'destructive',
         })
       } else {
@@ -364,103 +375,54 @@ export default function DeliveriesMap() {
   let centerLat = -23.5505
   let centerLng = -46.6333
 
-  if (logisticsSettings?.store_lat && logisticsSettings?.store_lng) {
-    centerLat = logisticsSettings.store_lat
-    centerLng = logisticsSettings.store_lng
-  } else if (orders.length > 0) {
-    centerLat = orders[0].delivery_lat
-    centerLng = orders[0].delivery_lng
+  if (storeLocation) {
+    centerLat = storeLocation.lat
+    centerLng = storeLocation.lng
+  } else {
+    const withCoords = orders.filter((o) => o.lat != null && o.lng != null)
+    if (withCoords.length > 0) {
+      centerLat = withCoords[0].lat
+      centerLng = withCoords[0].lng
+    }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Mapa de Entregas</h1>
-          <p className="text-muted-foreground mt-1">Visualize e otimize suas rotas de entrega.</p>
-        </div>
-        <Button onClick={handleSuggestRoute} disabled={isRouting} className="gap-2 bg-primary">
-          {isRouting ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Navigation className="w-4 h-4" />
-          )}
-          {isRouting ? 'Calculando...' : 'Sugerir Rota'}
-        </Button>
+    <div className="h-[calc(100vh-theme(spacing.24))] flex flex-col -mx-4 -mt-6 sm:mx-0 sm:mt-0">
+      <div className="hidden sm:block mb-6">
+        <h1 className="text-3xl font-bold tracking-tight">Mapa de Entregas</h1>
+        <p className="text-muted-foreground mt-1">Visualize e otimize suas rotas de entrega.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 relative overflow-hidden bg-slate-100 min-h-[600px] flex flex-col p-0">
+      <div className="flex-1 flex flex-col md:flex-row bg-background sm:rounded-xl sm:border overflow-hidden">
+        <div className="flex-1 relative min-h-[400px] md:min-h-0 bg-slate-100">
           {loading ? (
-            <div className="flex items-center justify-center flex-1 text-muted-foreground">
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-50">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>
           ) : (
-            <div className="flex-1 w-full relative">
-              <InteractiveMap
-                centerLat={centerLat}
-                centerLng={centerLng}
-                zoom={13}
-                storeLocation={
-                  logisticsSettings?.store_lat
-                    ? { lat: logisticsSettings.store_lat, lng: logisticsSettings.store_lng }
-                    : null
-                }
-                orders={orders}
-                routePoints={routePoints}
-              />
-            </div>
+            <InteractiveMap
+              centerLat={centerLat}
+              centerLng={centerLng}
+              zoom={13}
+              storeLocation={storeLocation}
+              orders={orders}
+              routePoints={routePoints}
+              activeOrderId={activeOrderId}
+              onOrderClick={setActiveOrderId}
+            />
           )}
-        </Card>
+        </div>
 
-        <Card className="flex flex-col h-[600px] lg:h-auto">
-          <CardHeader className="border-b">
-            <CardTitle>Sequência Sugerida</CardTitle>
-            <CardDescription>Ordem otimizada de entrega</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto p-4">
-            {suggestedRoute.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <Navigation className="w-12 h-12 mb-4 opacity-20" />
-                <p className="text-center text-sm">
-                  Clique em "Sugerir Rota" para otimizar as entregas.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex gap-3 items-center text-sm font-medium text-primary bg-primary/5 p-3 rounded-lg border border-primary/10">
-                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                    <Store className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="font-bold">Minha Loja</p>
-                    <p className="text-xs text-muted-foreground">Ponto de partida</p>
-                  </div>
-                </div>
-                {suggestedRoute.map((o, i) => (
-                  <div
-                    key={o.id}
-                    className="flex gap-3 items-start text-sm p-2 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100"
-                  >
-                    <div className="w-8 h-8 shrink-0 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs border border-blue-200">
-                      {i + 1}
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                      <p className="font-bold text-slate-800">{o.order_number}</p>
-                      <p className="text-slate-600 font-medium truncate">{o.customers?.name}</p>
-                      <p
-                        className="text-muted-foreground text-xs truncate"
-                        title={o.delivery_address}
-                      >
-                        {o.delivery_address}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="w-full md:w-[400px] flex-shrink-0 h-[400px] md:h-auto border-t md:border-t-0 md:border-l z-10 bg-background shadow-lg">
+          <DeliveriesPanel
+            orders={orders}
+            onCalculateRoute={handleSuggestRoute}
+            onOrderClick={setActiveOrderId}
+            activeOrderId={activeOrderId}
+            isRouting={isRouting}
+            storeLocation={storeLocation}
+          />
+        </div>
       </div>
     </div>
   )
