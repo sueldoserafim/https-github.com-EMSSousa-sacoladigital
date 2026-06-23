@@ -394,8 +394,17 @@ function InteractiveMap({
           )
         })}
 
-        {validOrders.map((o: any) => {
-          const px = getPixelsFromCoords(o.lat, o.lng, currentZoom, centerCoords)
+        {validOrders.map((o: any, index: number) => {
+          // Check for overlapping coords to slightly offset them so all remain interactive
+          const duplicatesBefore = validOrders
+            .slice(0, index)
+            .filter((prev: any) => prev.lat === o.lat && prev.lng === o.lng).length
+
+          // Offset by ~5 meters per duplicate
+          const offsetLat = o.lat + duplicatesBefore * 0.00005
+          const offsetLng = o.lng + duplicatesBefore * 0.00005
+
+          const px = getPixelsFromCoords(offsetLat, offsetLng, currentZoom, centerCoords)
           const isPopupOpen = activeOrderId === o.id
 
           return (
@@ -632,7 +641,17 @@ export default function DeliveriesMap() {
     if (!storeLocation || withCoords.length === 0) return
 
     setIsRouting(true)
-    const unvisited = [...withCoords]
+
+    // Group locations that are effectively the same to avoid routing loops and save waypoints
+    const uniqueLocationsMap = new Map<string, { lat: number; lng: number }>()
+    withCoords.forEach((o) => {
+      const key = `${Number(o.lat).toFixed(6)},${Number(o.lng).toFixed(6)}`
+      if (!uniqueLocationsMap.has(key)) {
+        uniqueLocationsMap.set(key, { lat: o.lat, lng: o.lng })
+      }
+    })
+
+    const unvisited = Array.from(uniqueLocationsMap.values())
     const route = []
     let currentPos = storeLocation
 
@@ -652,14 +671,11 @@ export default function DeliveriesMap() {
         }
       }
       route.push(unvisited[nearestIdx])
-      currentPos = {
-        lat: unvisited[nearestIdx].lat,
-        lng: unvisited[nearestIdx].lng,
-      }
+      currentPos = unvisited[nearestIdx]
       unvisited.splice(nearestIdx, 1)
     }
 
-    const waypoints = route.map((o) => ({ lat: o.lat, lng: o.lng }))
+    const waypoints = route.map((loc) => ({ lat: loc.lat, lng: loc.lng }))
 
     try {
       const osrmPoints = await getOptimizedRoute(storeLocation, waypoints)
