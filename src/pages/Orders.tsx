@@ -193,10 +193,12 @@ export default function Orders() {
       </div>
 
       {filteredOrders.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-2xl border border-pink-100 border-dashed animate-fade-in-up">
+        <div className="text-center py-20 bg-white rounded-2xl border border-border border-dashed animate-fade-in-up">
           <PackageOpen className="mx-auto h-12 w-12 text-muted-foreground/30 mb-4" />
-          <p className="text-lg font-medium text-foreground">Nenhum pedido encontrado</p>
-          <p className="text-muted-foreground mt-1 text-sm">Tente ajustar os filtros da busca.</p>
+          <p className="text-lg font-medium text-foreground">No orders yet</p>
+          <p className="text-muted-foreground mt-1 text-sm max-w-sm mx-auto">
+            Orders will appear here once customers start purchasing from your store.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">

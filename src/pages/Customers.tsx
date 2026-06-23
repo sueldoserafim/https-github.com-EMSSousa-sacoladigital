@@ -53,6 +53,7 @@ import {
   ShoppingBag,
   Loader2,
   RefreshCw,
+  Users,
 } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 
@@ -493,8 +494,21 @@ export default function Customers() {
               </TableRow>
             ) : filteredCustomers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                  Nenhum cliente encontrado.
+                <TableCell colSpan={6} className="h-64">
+                  <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in-up">
+                    <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+                      <Users className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-1">
+                      No customers found
+                    </h3>
+                    <p className="text-sm text-muted-foreground max-w-sm mb-6">
+                      Your customer base is currently empty. Add your first customer to get started.
+                    </p>
+                    <Button onClick={() => handleOpenModal()}>
+                      <Plus className="w-4 h-4 mr-2" /> Add Customer
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (

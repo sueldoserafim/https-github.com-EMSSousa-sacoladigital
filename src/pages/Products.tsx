@@ -333,8 +333,21 @@ export default function Products() {
               ))}
               {filteredList.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                    Nenhum produto encontrado.
+                  <TableCell colSpan={7} className="h-64">
+                    <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in-up">
+                      <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+                        <PackageOpen className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-foreground mb-1">
+                        No products found
+                      </h3>
+                      <p className="text-sm text-muted-foreground max-w-sm mb-6">
+                        Start building your inventory by adding products.
+                      </p>
+                      <Button onClick={() => openModal(null)}>
+                        <Plus className="w-4 h-4 mr-2" /> Add Your First Product
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
