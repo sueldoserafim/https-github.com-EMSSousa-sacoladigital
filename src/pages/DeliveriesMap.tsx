@@ -276,7 +276,7 @@ export default function DeliveriesMap() {
     const { data: ordersData } = await supabase
       .from('orders')
       .select('*, customers(name, address, lat, lng)')
-      .eq('status', 'pronto p/ entrega')
+      .eq('status', 'Pronto p/ entrega')
       .eq('organization_id', organization?.id)
 
     if (orgData?.lat && orgData?.lng) {

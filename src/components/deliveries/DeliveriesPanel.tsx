@@ -84,7 +84,7 @@ export function DeliveriesPanel({
                     </p>
                     {!hasLocation && (
                       <Badge variant="destructive" className="mt-2 text-[10px] py-0 px-1.5">
-                        Sem localização
+                        Endereço não geolocalizado
                       </Badge>
                     )}
                   </div>
@@ -95,7 +95,7 @@ export function DeliveriesPanel({
             {orders.length === 0 && (
               <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground h-full">
                 <CheckCircle2 className="w-12 h-12 mb-3 text-muted-foreground/30" />
-                <p className="text-sm">Nenhum pedido ativo no momento.</p>
+                <p className="text-sm">Nenhum pedido pronto para entrega.</p>
               </div>
             )}
           </div>
