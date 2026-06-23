@@ -13,7 +13,7 @@ export async function geocodeAddress(
       },
     })
     let data = await response.json()
-    console.log(data)
+
     if (data && data.length > 0) {
       return {
         lat: parseFloat(data[0].lat),
