@@ -265,22 +265,33 @@ export default function DeliveriesMap() {
   const loadData = async () => {
     setLoading(true)
 
-    // Fetch Organization Location
-    const { data: orgData } = await supabase
-      .from('organizations')
-      .select('lat, lng')
-      .eq('id', organization?.id)
-      .single()
+    // Fetch Organization Location and Logistics Settings
+    const [{ data: logisticsData }, { data: orgData }, { data: ordersData }] = await Promise.all([
+      supabase
+        .from('organization_logistics_settings')
+        .select('store_lat, store_lng')
+        .eq('organization_id', organization?.id)
+        .maybeSingle(),
+      supabase.from('organizations').select('lat, lng').eq('id', organization?.id).single(),
+      supabase
+        .from('orders')
+        .select('*, customers(name, address, lat, lng)')
+        .eq('status', 'Pronto p/ entrega')
+        .eq('organization_id', organization?.id),
+    ])
 
-    // Fetch Orders with Customers Geodata
-    const { data: ordersData } = await supabase
-      .from('orders')
-      .select('*, customers(name, address, lat, lng)')
-      .eq('status', 'Pronto p/ entrega')
-      .eq('organization_id', organization?.id)
-
-    if (orgData?.lat && orgData?.lng) {
+    if (logisticsData?.store_lat && logisticsData?.store_lng) {
+      setStoreLocation({ lat: logisticsData.store_lat, lng: logisticsData.store_lng })
+    } else if (orgData?.lat && orgData?.lng) {
       setStoreLocation({ lat: orgData.lat, lng: orgData.lng })
+    } else {
+      setStoreLocation(null)
+      toast({
+        title: 'Aviso',
+        description:
+          'Coordenadas da loja não configuradas. Acesse as configurações de logística para definir o ponto de origem.',
+        variant: 'destructive',
+      })
     }
 
     if (ordersData) {
