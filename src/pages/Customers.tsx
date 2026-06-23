@@ -69,6 +69,8 @@ interface Customer {
   is_unsubscribed?: boolean
   customer_tags?: { id: string; name: string }[]
   address?: string | null
+  lat?: number | null
+  lng?: number | null
 }
 
 interface TimelineEvent {
@@ -98,12 +100,22 @@ export default function Customers() {
 
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    email: string
+    phone: string
+    address: string
+    is_unsubscribed: boolean
+    lat: number | null
+    lng: number | null
+  }>({
     name: '',
     email: '',
     phone: '',
     address: '',
     is_unsubscribed: false,
+    lat: null,
+    lng: null,
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -373,10 +385,20 @@ export default function Customers() {
         phone: customer.phone || '',
         address: customer.address || '',
         is_unsubscribed: customer.is_unsubscribed || false,
+        lat: customer.lat || null,
+        lng: customer.lng || null,
       })
     } else {
       setEditingCustomer(null)
-      setFormData({ name: '', email: '', phone: '', address: '', is_unsubscribed: false })
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        is_unsubscribed: false,
+        lat: null,
+        lng: null,
+      })
     }
     setIsCustomerModalOpen(true)
   }
@@ -388,9 +410,13 @@ export default function Customers() {
     setIsSubmitting(true)
     try {
       const { geocodeAddress } = await import('@/lib/geocode')
-      let lat = null
-      let lng = null
-      if (formData.address) {
+      let lat = formData.lat
+      let lng = formData.lng
+
+      if (!formData.address) {
+        lat = null
+        lng = null
+      } else if (!editingCustomer || formData.address !== editingCustomer.address) {
         const coords = await geocodeAddress(formData.address)
         if (coords) {
           lat = coords.lat

@@ -127,13 +127,11 @@ export function NewOrderModal({
     if (!deliveryAddress) return
     setIsSearchingAddress(true)
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(deliveryAddress)}`,
-      )
-      const data = await res.json()
-      if (data && data.length > 0) {
-        const lat = parseFloat(data[0].lat)
-        const lng = parseFloat(data[0].lon)
+      const { geocodeAddress } = await import('@/lib/geocode')
+      const coords = await geocodeAddress(deliveryAddress)
+      if (coords) {
+        const lat = coords.lat
+        const lng = coords.lng
         setDeliveryLat(lat)
         setDeliveryLng(lng)
         if (logisticsConfig && logisticsConfig.store_lat && logisticsConfig.store_lng) {
