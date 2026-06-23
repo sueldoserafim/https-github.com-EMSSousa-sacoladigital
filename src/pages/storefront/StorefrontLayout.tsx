@@ -150,7 +150,7 @@ export default function StorefrontLayout() {
 
   const [cartOpen, setCartOpen] = useState(false)
   const [isCheckout, setIsCheckout] = useState(false)
-  const [customer, setCustomer] = useState({ name: '', email: '', phone: '' })
+  const [customer, setCustomer] = useState({ name: '', email: '', phone: '', address: '' })
   const [checkoutLoading, setCheckoutLoading] = useState(false)
 
   const addToCart = (item: CartItem) => {
@@ -199,6 +199,17 @@ export default function StorefrontLayout() {
     if (!cart.length) return
     setCheckoutLoading(true)
     try {
+      const { geocodeAddress } = await import('@/lib/geocode')
+      let lat = null
+      let lng = null
+      if (customer.address) {
+        const coords = await geocodeAddress(customer.address)
+        if (coords) {
+          lat = coords.lat
+          lng = coords.lng
+        }
+      }
+
       const sellerSlug = localStorage.getItem(`seller_ref_${slug}`) || undefined
 
       const { data: orderId, error } = await supabase.rpc('create_checkout_order', {
@@ -208,13 +219,16 @@ export default function StorefrontLayout() {
         p_customer_phone: customer.phone,
         p_items: cart.map((i) => ({ sku_id: i.sku_id, quantity: i.quantity, price: i.price })),
         p_seller_slug: sellerSlug,
+        p_delivery_address: customer.address || null,
+        p_delivery_lat: lat,
+        p_delivery_lng: lng,
       })
       if (error) throw error
 
       setCart([])
       setCartOpen(false)
       setIsCheckout(false)
-      setCustomer({ name: '', email: '', phone: '' })
+      setCustomer({ name: '', email: '', phone: '', address: '' })
 
       navigate(`/vitrine/${slug}/success?orderId=${orderId}`)
     } catch (error: any) {

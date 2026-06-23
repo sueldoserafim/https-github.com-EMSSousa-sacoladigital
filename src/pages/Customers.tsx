@@ -101,6 +101,7 @@ export default function Customers() {
     name: '',
     email: '',
     phone: '',
+    address: '',
     is_unsubscribed: false,
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -362,18 +363,19 @@ export default function Customers() {
     }
   }
 
-  const handleOpenModal = (customer?: Customer) => {
+  const handleOpenModal = (customer?: any) => {
     if (customer) {
       setEditingCustomer(customer)
       setFormData({
         name: customer.name,
         email: customer.email || '',
         phone: customer.phone || '',
+        address: customer.address || '',
         is_unsubscribed: customer.is_unsubscribed || false,
       })
     } else {
       setEditingCustomer(null)
-      setFormData({ name: '', email: '', phone: '', is_unsubscribed: false })
+      setFormData({ name: '', email: '', phone: '', address: '', is_unsubscribed: false })
     }
     setIsCustomerModalOpen(true)
   }
@@ -384,6 +386,17 @@ export default function Customers() {
 
     setIsSubmitting(true)
     try {
+      const { geocodeAddress } = await import('@/lib/geocode')
+      let lat = null
+      let lng = null
+      if (formData.address) {
+        const coords = await geocodeAddress(formData.address)
+        if (coords) {
+          lat = coords.lat
+          lng = coords.lng
+        }
+      }
+
       if (editingCustomer) {
         const { error } = await supabase
           .from('customers')
@@ -391,6 +404,9 @@ export default function Customers() {
             name: formData.name,
             email: formData.email || null,
             phone: formData.phone || null,
+            address: formData.address || null,
+            lat,
+            lng,
             is_unsubscribed: formData.is_unsubscribed,
           })
           .eq('id', editingCustomer.id)
@@ -404,6 +420,9 @@ export default function Customers() {
           name: formData.name,
           email: formData.email || null,
           phone: formData.phone || null,
+          address: formData.address || null,
+          lat,
+          lng,
         })
 
         if (error) throw error
