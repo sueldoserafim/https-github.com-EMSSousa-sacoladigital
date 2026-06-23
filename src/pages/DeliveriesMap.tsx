@@ -82,6 +82,7 @@ function InteractiveMap({
   routePoints,
   activeOrderId,
   onOrderClick,
+  driverLocations = {},
 }: any) {
   const [internalCenter, setInternalCenter] = useState({ lat: centerLat, lng: centerLng })
   const [currentZoom, setCurrentZoom] = useState(zoom)
@@ -347,6 +348,25 @@ function InteractiveMap({
             )
           })()}
 
+        {Object.entries(driverLocations).map(([orderId, pos]: [string, any]) => {
+          const px = getPixelsFromCoords(pos.lat, pos.lng, currentZoom, centerCoords)
+          return (
+            <div
+              key={`driver-${orderId}`}
+              className="absolute flex flex-col items-center justify-center z-30"
+              style={{
+                left: px.x,
+                top: px.y,
+                transform: 'translate(-50%, -50%)',
+              }}
+              title="Localização atual do entregador"
+            >
+              <div className="bg-green-500 w-4 h-4 rounded-full border-2 border-white shadow animate-pulse" />
+              <div className="absolute inset-0 rounded-full border border-green-500 animate-ping opacity-75" />
+            </div>
+          )
+        })}
+
         {validOrders.map((o: any) => {
           const px = getPixelsFromCoords(o.lat, o.lng, currentZoom, centerCoords)
           const isPopupOpen = activeOrderId === o.id
@@ -428,11 +448,37 @@ export default function DeliveriesMap() {
   const [routePoints, setRoutePoints] = useState<{ lat: number; lng: number }[]>([])
   const [isRouting, setIsRouting] = useState(false)
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null)
+  const [driverLocations, setDriverLocations] = useState<
+    Record<string, { lat: number; lng: number }>
+  >({})
   const { toast } = useToast()
 
   useEffect(() => {
     if (organization) {
       loadData()
+
+      const channel = supabase
+        .channel('delivery_tracking_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'delivery_tracking',
+            filter: `organization_id=eq.${organization.id}`,
+          },
+          (payload) => {
+            const { order_id, lat, lng } = payload.new as any
+            if (order_id && lat && lng) {
+              setDriverLocations((prev) => ({ ...prev, [order_id]: { lat, lng } }))
+            }
+          },
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
     }
   }, [organization])
 
@@ -594,6 +640,7 @@ export default function DeliveriesMap() {
               routePoints={routePoints}
               activeOrderId={activeOrderId}
               onOrderClick={setActiveOrderId}
+              driverLocations={driverLocations}
             />
           )}
         </div>
