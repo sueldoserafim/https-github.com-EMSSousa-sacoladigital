@@ -251,8 +251,15 @@ export default function Settings() {
     if (!storeAddress) return
     setIsSearchingAddress(true)
     try {
+      console.log(storeAddress)
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(storeAddress)}`,
+        {
+          headers: {
+            'User-Agent': 'SacolaDigital/1.0 (sueldo@suportesigma.com)',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+          },
+        },
       )
       const data = await res.json()
       if (data && data.length > 0) {
