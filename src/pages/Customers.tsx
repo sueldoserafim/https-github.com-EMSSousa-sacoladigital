@@ -68,6 +68,7 @@ interface Customer {
   segment?: string
   is_unsubscribed?: boolean
   customer_tags?: { id: string; name: string }[]
+  address?: string | null
 }
 
 interface TimelineEvent {
@@ -718,6 +719,15 @@ export default function Customers() {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="(00) 00000-0000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">Endereço</Label>
+                <Input
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="Rua, Número, Bairro, Cidade - UF"
                 />
               </div>
               {editingCustomer && (

@@ -494,6 +494,21 @@ export default function StorefrontLayout() {
                                   }
                                 />
                               </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="address" className="text-slate-700">
+                                  Endereço de Entrega
+                                </Label>
+                                <Input
+                                  id="address"
+                                  required
+                                  className="h-12 rounded-xl"
+                                  value={customer.address}
+                                  onChange={(e) =>
+                                    setCustomer({ ...customer, address: e.target.value })
+                                  }
+                                  placeholder="Rua, Número, Bairro, Cidade - UF"
+                                />
+                              </div>
                             </div>
                           </ScrollArea>
                           <div className="pt-4 border-t space-y-3">
