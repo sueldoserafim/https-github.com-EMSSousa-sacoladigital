@@ -3,7 +3,9 @@ import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Navigation, Store } from 'lucide-react'
+import { Navigation, Store, Loader2 } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+import { getOptimizedRoute } from '@/lib/routing'
 
 // Technical Asset Fix: Fix for the common "broken marker icon" issue in React/Next.js environments
 // by explicitly re-configuring the default marker icon paths (icon, iconRetina, and shadow)
@@ -59,7 +61,6 @@ function Polyline({
         fill="none"
         stroke="#2563eb"
         strokeWidth="4"
-        strokeDasharray="6 6"
         strokeLinejoin="round"
         strokeLinecap="round"
       />
@@ -73,7 +74,7 @@ function InteractiveMap({
   zoom = 13,
   storeLocation,
   orders,
-  suggestedRoute,
+  routePoints,
 }: any) {
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
@@ -112,14 +113,6 @@ function InteractiveMap({
     }
   }
 
-  let routePositions = []
-  if (suggestedRoute && suggestedRoute.length > 0 && storeLocation) {
-    routePositions = [
-      { lat: storeLocation.lat, lng: storeLocation.lng },
-      ...suggestedRoute.map((o: any) => ({ lat: o.delivery_lat, lng: o.delivery_lng })),
-    ]
-  }
-
   return (
     <div
       className={`relative w-full h-full overflow-hidden bg-[#e5e3df] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
@@ -151,8 +144,8 @@ function InteractiveMap({
           )
         })}
 
-        {routePositions.length > 0 && (
-          <Polyline positions={routePositions} zoom={zoom} centerCoords={centerCoords} />
+        {routePoints && routePoints.length > 0 && (
+          <Polyline positions={routePoints} zoom={zoom} centerCoords={centerCoords} />
         )}
 
         {storeLocation &&
@@ -258,6 +251,9 @@ export default function DeliveriesMap() {
   const [logisticsSettings, setLogisticsSettings] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [suggestedRoute, setSuggestedRoute] = useState<any[]>([])
+  const [routePoints, setRoutePoints] = useState<{ lat: number; lng: number }[]>([])
+  const [isRouting, setIsRouting] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     if (organization) {
@@ -300,10 +296,11 @@ export default function DeliveriesMap() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   }
 
-  const handleSuggestRoute = () => {
+  const handleSuggestRoute = async () => {
     if (!logisticsSettings?.store_lat || !logisticsSettings?.store_lng || orders.length === 0)
       return
 
+    setIsRouting(true)
     const unvisited = [...orders]
     const route = []
     let currentPos = { lat: logisticsSettings.store_lat, lng: logisticsSettings.store_lng }
@@ -331,6 +328,37 @@ export default function DeliveriesMap() {
       unvisited.splice(nearestIdx, 1)
     }
     setSuggestedRoute(route)
+
+    const storeLocation = { lat: logisticsSettings.store_lat, lng: logisticsSettings.store_lng }
+    const waypoints = route.map((o) => ({ lat: o.delivery_lat, lng: o.delivery_lng }))
+
+    try {
+      const osrmPoints = await getOptimizedRoute(storeLocation, waypoints)
+      if (osrmPoints.length > 0) {
+        setRoutePoints(osrmPoints)
+      } else {
+        setRoutePoints([storeLocation, ...waypoints, storeLocation])
+      }
+    } catch (error: any) {
+      if (error.message === 'RATE_LIMIT') {
+        toast({
+          title: 'Aviso',
+          description:
+            'Routing service temporarily unavailable due to high demand. Please try again in a moment.',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'Aviso',
+          description:
+            'Não foi possível traçar a rota com precisão nas vias. Exibindo linha direta.',
+          variant: 'destructive',
+        })
+      }
+      setRoutePoints([storeLocation, ...waypoints, storeLocation])
+    } finally {
+      setIsRouting(false)
+    }
   }
 
   let centerLat = -23.5505
@@ -351,9 +379,13 @@ export default function DeliveriesMap() {
           <h1 className="text-3xl font-bold tracking-tight">Mapa de Entregas</h1>
           <p className="text-muted-foreground mt-1">Visualize e otimize suas rotas de entrega.</p>
         </div>
-        <Button onClick={handleSuggestRoute} className="gap-2 bg-primary">
-          <Navigation className="w-4 h-4" />
-          Sugerir Rota
+        <Button onClick={handleSuggestRoute} disabled={isRouting} className="gap-2 bg-primary">
+          {isRouting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Navigation className="w-4 h-4" />
+          )}
+          {isRouting ? 'Calculando...' : 'Sugerir Rota'}
         </Button>
       </div>
 
@@ -375,7 +407,7 @@ export default function DeliveriesMap() {
                     : null
                 }
                 orders={orders}
-                suggestedRoute={suggestedRoute}
+                routePoints={routePoints}
               />
             </div>
           )}
