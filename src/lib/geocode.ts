@@ -3,7 +3,7 @@ export async function geocodeAddress(
 ): Promise<{ lat: number; lng: number } | null> {
   if (!address) return null
   try {
-    const cleanAddress = 'rua seis de janeiro 328 mossoro rn'
+    const cleanAddress = 'rua seis de janeiro 328 barrocas mossoro rn'
       .replace(/Nº\s*/gi, '')
       .replace(/nº\s*/gi, '')
       .replace(/n\.\s*/gi, '')
