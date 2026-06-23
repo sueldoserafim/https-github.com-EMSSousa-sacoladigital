@@ -45,6 +45,7 @@ export default function Products() {
   }
 
   const fetchProducts = async () => {
+    if (!organization?.id) return
     const { data } = await supabase
       .from('products')
       .select(`
@@ -57,6 +58,7 @@ export default function Products() {
           wishlists ( id )
         )
       `)
+      .eq('organization_id', organization.id)
       .order('created_at', { ascending: false })
 
     if (data) setProducts(data)
