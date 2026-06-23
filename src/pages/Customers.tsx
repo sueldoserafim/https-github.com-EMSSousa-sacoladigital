@@ -57,6 +57,8 @@ import {
 } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 
+const PAGE_SIZE = 20
+
 interface Customer {
   id: string
   name: string
@@ -87,7 +89,11 @@ export default function Customers() {
   const [customers, setCustomers] = useState<CustomerWithOrders[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isSegmenting, setIsSegmenting] = useState(false)
+
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
 
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
@@ -120,17 +126,41 @@ export default function Customers() {
   const [newTag, setNewTag] = useState('')
   const [isAddingTag, setIsAddingTag] = useState(false)
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setPage(1)
+    }, 500)
+    return () => clearTimeout(handler)
+  }, [searchTerm])
+
+  useEffect(() => {
+    fetchCustomers()
+  }, [organization?.id, page, debouncedSearch])
+
   const fetchCustomers = async () => {
     if (!organization?.id) return
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      let query = supabase
         .from('customers')
-        .select('*, customer_tags(id, name), orders(created_at)')
+        .select('*, customer_tags(id, name), orders(created_at)', { count: 'exact' })
         .eq('organization_id', organization.id)
         .order('created_at', { ascending: false })
 
+      if (debouncedSearch) {
+        query = query.or(`name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`)
+      }
+
+      const from = (page - 1) * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+      query = query.range(from, to)
+
+      const { data, count, error } = await query
+
       if (error) throw error
+
+      if (count !== null) setTotalCount(count)
 
       const now = new Date()
       const formattedData = (data || []).map((c: any) => {
@@ -161,16 +191,11 @@ export default function Customers() {
     }
   }
 
-  useEffect(() => {
-    fetchCustomers()
-  }, [organization?.id])
-
   const loadTimeline = async (customerId: string) => {
     setLoadingTimeline(true)
     try {
       const events: TimelineEvent[] = []
 
-      // Orders
       const { data: orders } = await supabase
         .from('orders')
         .select('id, order_number, total, created_at, status')
@@ -187,7 +212,6 @@ export default function Customers() {
         })
       }
 
-      // Notes
       const { data: notes } = await supabase
         .from('customer_notes')
         .select('id, content, is_private, created_at, author_id, profiles(full_name)')
@@ -207,7 +231,6 @@ export default function Customers() {
         })
       }
 
-      // Tags
       const { data: tags } = await supabase
         .from('customer_tags')
         .select('id, name, created_at')
@@ -305,7 +328,7 @@ export default function Customers() {
       toast({ title: 'Tag adicionada com sucesso' })
       setNewTag('')
       loadTimeline(selectedCustomer.id)
-      fetchCustomers() // Refresh list to show tag
+      fetchCustomers()
     } catch (err: any) {
       toast({ title: 'Erro ao adicionar tag', description: err.message, variant: 'destructive' })
     } finally {
@@ -338,12 +361,6 @@ export default function Customers() {
       setIsSegmenting(false)
     }
   }
-
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase())),
-  )
 
   const handleOpenModal = (customer?: Customer) => {
     if (customer) {
@@ -492,7 +509,7 @@ export default function Customers() {
                   Carregando...
                 </TableCell>
               </TableRow>
-            ) : filteredCustomers.length === 0 ? (
+            ) : customers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-64">
                   <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in-up">
@@ -512,7 +529,7 @@ export default function Customers() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredCustomers.map((customer) => (
+              customers.map((customer) => (
                 <TableRow key={customer.id}>
                   <TableCell className="font-medium">{customer.name}</TableCell>
                   <TableCell>
@@ -613,6 +630,32 @@ export default function Customers() {
             )}
           </TableBody>
         </Table>
+        {totalCount > 0 && (
+          <div className="p-4 border-t flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Mostrando {(page - 1) * PAGE_SIZE + 1} a {Math.min(page * PAGE_SIZE, totalCount)} de{' '}
+              {totalCount} registros
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page * PAGE_SIZE >= totalCount}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Próximo
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <Dialog open={isCustomerModalOpen} onOpenChange={setIsCustomerModalOpen}>
@@ -710,7 +753,6 @@ export default function Customers() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* CRM Details Sheet */}
       <Sheet open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <SheetContent className="sm:max-w-xl w-full overflow-y-auto">
           {selectedCustomer && (
@@ -823,7 +865,6 @@ export default function Customers() {
                 </TabsContent>
 
                 <TabsContent value="crm" className="space-y-8">
-                  {/* Notes Form */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold border-b pb-2">Adicionar Nota</h3>
                     <form
@@ -864,7 +905,6 @@ export default function Customers() {
                     </form>
                   </div>
 
-                  {/* Tags Form */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold border-b pb-2">Gerenciar Tags</h3>
                     <div className="flex flex-wrap gap-2 mb-4">

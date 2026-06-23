@@ -11,56 +11,75 @@ import {
 } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Activity, Eye, Search } from 'lucide-react'
+import { Activity, Eye, Search, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Label } from '@/components/ui/label'
+
+const PAGE_SIZE = 20
 
 export default function MasterAuditLogs() {
   const [logs, setLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedLog, setSelectedLog] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
 
   useEffect(() => {
-    async function loadLogs() {
-      const { data } = await supabase
-        .from('system_audit_logs')
-        .select('*, organizations(name)')
-        .order('created_at', { ascending: false })
-        .limit(200)
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setPage(1)
+    }, 500)
+    return () => clearTimeout(handler)
+  }, [searchTerm])
 
-      if (data) {
-        const userIds = [...new Set(data.map((l) => l.user_id).filter(Boolean))]
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', userIds)
-
-        const profileMap = (profiles || []).reduce((acc: any, p: any) => {
-          acc[p.id] = p.full_name
-          return acc
-        }, {})
-
-        const enriched = data.map((l) => ({
-          ...l,
-          user_name: profileMap[l.user_id] || 'Sistema',
-        }))
-        setLogs(enriched)
-      }
-      setLoading(false)
-    }
+  useEffect(() => {
     loadLogs()
-  }, [])
+  }, [page, debouncedSearch])
 
-  const filteredLogs = logs.filter(
-    (l) =>
-      l.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.entity_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (l.organizations?.name || '').toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  async function loadLogs() {
+    setLoading(true)
+    let query = supabase
+      .from('system_audit_logs')
+      .select('*, organizations(name)', { count: 'exact' })
+      .order('created_at', { ascending: false })
+
+    if (debouncedSearch) {
+      query = query.or(`action.ilike.%${debouncedSearch}%,entity_type.ilike.%${debouncedSearch}%`)
+    }
+
+    const from = (page - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+    query = query.range(from, to)
+
+    const { data, count } = await query
+
+    if (data) {
+      const userIds = [...new Set(data.map((l) => l.user_id).filter(Boolean))]
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds)
+
+      const profileMap = (profiles || []).reduce((acc: any, p: any) => {
+        acc[p.id] = p.full_name
+        return acc
+      }, {})
+
+      const enriched = data.map((l) => ({
+        ...l,
+        user_name: profileMap[l.user_id] || 'Sistema',
+      }))
+      setLogs(enriched)
+      if (count !== null) setTotalCount(count)
+    }
+    setLoading(false)
+  }
 
   return (
     <div className="space-y-6">
@@ -81,7 +100,7 @@ export default function MasterAuditLogs() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
             <Input
               type="text"
-              placeholder="Buscar logs..."
+              placeholder="Buscar ações ou entidades..."
               className="pl-9 h-9"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -103,18 +122,18 @@ export default function MasterAuditLogs() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
-                    Carregando...
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" />
                   </TableCell>
                 </TableRow>
-              ) : filteredLogs.length === 0 ? (
+              ) : logs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-slate-500">
                     Nenhum log encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredLogs.map((log) => (
+                logs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell className="pl-6 text-slate-600 whitespace-nowrap">
                       {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })}
@@ -137,6 +156,32 @@ export default function MasterAuditLogs() {
               )}
             </TableBody>
           </Table>
+          {totalCount > 0 && (
+            <div className="p-4 border-t flex items-center justify-between">
+              <span className="text-sm text-slate-500">
+                Mostrando {(page - 1) * PAGE_SIZE + 1} a {Math.min(page * PAGE_SIZE, totalCount)} de{' '}
+                {totalCount} registros
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page * PAGE_SIZE >= totalCount}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Próximo
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -150,7 +195,7 @@ export default function MasterAuditLogs() {
               <div className="space-y-2">
                 <Label className="text-slate-500 font-semibold">Antes (old_data)</Label>
                 <ScrollArea className="h-[400px] w-full rounded-md border border-slate-200 bg-slate-950 p-4">
-                  <pre className="text-xs text-green-400 font-mono">
+                  <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap break-all">
                     {JSON.stringify(selectedLog.old_data, null, 2) || 'N/A'}
                   </pre>
                 </ScrollArea>
@@ -158,7 +203,7 @@ export default function MasterAuditLogs() {
               <div className="space-y-2">
                 <Label className="text-slate-500 font-semibold">Depois (new_data)</Label>
                 <ScrollArea className="h-[400px] w-full rounded-md border border-slate-200 bg-slate-950 p-4">
-                  <pre className="text-xs text-blue-400 font-mono">
+                  <pre className="text-xs text-blue-400 font-mono whitespace-pre-wrap break-all">
                     {JSON.stringify(selectedLog.new_data, null, 2) || 'N/A'}
                   </pre>
                 </ScrollArea>

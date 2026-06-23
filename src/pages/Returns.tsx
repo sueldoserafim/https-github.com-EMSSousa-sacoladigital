@@ -16,31 +16,67 @@ import { useToast } from '@/hooks/use-toast'
 import { Input } from '@/components/ui/input'
 import { format } from 'date-fns'
 
+const PAGE_SIZE = 20
+
 export default function Returns() {
   const { organization } = useAuth()
   const [returns, setReturns] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const { toast } = useToast()
+
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1)
+    }, 500)
+    return () => clearTimeout(handler)
+  }, [search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter])
 
   useEffect(() => {
     if (organization) fetchReturns()
-  }, [organization])
+  }, [organization, page, debouncedSearch, statusFilter])
 
   const fetchReturns = async () => {
     setLoading(true)
-    const { data, error } = await supabase
+    let query = supabase
       .from('returns')
-      .select(`
+      .select(
+        `
         *,
-        orders ( order_number, customers ( name ) ),
+        orders!inner ( order_number, customers ( name ) ),
         product_skus ( sku_code, products ( name ) )
-      `)
+      `,
+        { count: 'exact' },
+      )
       .eq('organization_id', organization!.id)
       .order('created_at', { ascending: false })
 
+    if (statusFilter !== 'all') {
+      query = query.eq('status', statusFilter)
+    }
+
+    if (debouncedSearch) {
+      query = query.ilike('orders.order_number', `%${debouncedSearch}%`)
+    }
+
+    const from = (page - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+    query = query.range(from, to)
+
+    const { data, count, error } = await query
+
     if (data) setReturns(data)
+    if (count !== null) setTotalCount(count)
     if (error) toast({ title: 'Erro', description: error.message, variant: 'destructive' })
     setLoading(false)
   }
@@ -54,20 +90,6 @@ export default function Returns() {
       fetchReturns()
     }
   }
-
-  const filteredReturns = returns.filter((r) => {
-    if (statusFilter !== 'all' && r.status !== statusFilter) return false
-    if (search) {
-      const q = search.toLowerCase()
-      if (
-        !r.orders?.order_number.toLowerCase().includes(q) &&
-        !r.orders?.customers?.name.toLowerCase().includes(q)
-      ) {
-        return false
-      }
-    }
-    return true
-  })
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -117,7 +139,7 @@ export default function Returns() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por pedido ou cliente..."
+            placeholder="Buscar por pedido..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 bg-white"
@@ -142,77 +164,108 @@ export default function Returns() {
         <div className="flex justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      ) : filteredReturns.length === 0 ? (
+      ) : returns.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-dashed">
           <RefreshCcw className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
           <p className="text-lg font-medium">Nenhuma solicitação encontrada</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {filteredReturns.map((r) => (
-            <Card key={r.id}>
-              <CardContent className="p-6 flex flex-col md:flex-row gap-6 items-start md:items-center">
-                <div className="flex-1 space-y-2">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="font-bold text-lg">Pedido #{r.orders?.order_number}</h3>
-                    {getStatusBadge(r.status)}
-                    <Badge variant="outline">{r.type === 'return' ? 'Devolução' : 'Troca'}</Badge>
-                  </div>
-                  <p className="text-sm font-medium">{r.orders?.customers?.name}</p>
-                  <div className="bg-accent/30 p-3 rounded-lg border mt-3">
-                    <p className="text-sm font-semibold">{r.product_skus?.products?.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      SKU: {r.product_skus?.sku_code} • Quantidade: {r.quantity}
-                    </p>
-                    {r.reason && (
-                      <p className="text-sm mt-2 pt-2 border-t text-muted-foreground italic">
-                        "{r.reason}"
+        <>
+          <div className="grid grid-cols-1 gap-4">
+            {returns.map((r) => (
+              <Card key={r.id}>
+                <CardContent className="p-6 flex flex-col md:flex-row gap-6 items-start md:items-center">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h3 className="font-bold text-lg">Pedido #{r.orders?.order_number}</h3>
+                      {getStatusBadge(r.status)}
+                      <Badge variant="outline">{r.type === 'return' ? 'Devolução' : 'Troca'}</Badge>
+                    </div>
+                    <p className="text-sm font-medium">{r.orders?.customers?.name}</p>
+                    <div className="bg-accent/30 p-3 rounded-lg border mt-3">
+                      <p className="text-sm font-semibold">{r.product_skus?.products?.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        SKU: {r.product_skus?.sku_code} • Quantidade: {r.quantity}
                       </p>
+                      {r.reason && (
+                        <p className="text-sm mt-2 pt-2 border-t text-muted-foreground italic">
+                          "{r.reason}"
+                        </p>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground pt-1">
+                      Solicitado em {format(new Date(r.created_at), 'dd/MM/yyyy HH:mm')}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto">
+                    {r.status === 'pending' && (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => updateStatus(r.id, 'approved')}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          Aprovar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => updateStatus(r.id, 'rejected')}
+                        >
+                          Rejeitar
+                        </Button>
+                      </>
+                    )}
+                    {r.status === 'approved' && (
+                      <Button
+                        size="sm"
+                        onClick={() => updateStatus(r.id, 'completed')}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Marcar como Concluído
+                      </Button>
+                    )}
+                    {r.status !== 'pending' && r.status !== 'approved' && (
+                      <Button size="sm" variant="outline" disabled>
+                        Finalizado
+                      </Button>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground pt-1">
-                    Solicitado em {format(new Date(r.created_at), 'dd/MM/yyyy HH:mm')}
-                  </p>
-                </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-                <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto">
-                  {r.status === 'pending' && (
-                    <>
-                      <Button
-                        size="sm"
-                        onClick={() => updateStatus(r.id, 'approved')}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        Aprovar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => updateStatus(r.id, 'rejected')}
-                      >
-                        Rejeitar
-                      </Button>
-                    </>
-                  )}
-                  {r.status === 'approved' && (
-                    <Button
-                      size="sm"
-                      onClick={() => updateStatus(r.id, 'completed')}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      Marcar como Concluído
-                    </Button>
-                  )}
-                  {r.status !== 'pending' && r.status !== 'approved' && (
-                    <Button size="sm" variant="outline" disabled>
-                      Finalizado
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+          {totalCount > 0 && (
+            <div className="p-4 flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                Mostrando {(page - 1) * PAGE_SIZE + 1} a {Math.min(page * PAGE_SIZE, totalCount)} de{' '}
+                {totalCount} solicitações
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="bg-white"
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page * PAGE_SIZE >= totalCount}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="bg-white"
+                >
+                  Próximo
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

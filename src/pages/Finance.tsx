@@ -35,15 +35,68 @@ import {
 } from '@/components/ui/table'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 
+const PAGE_SIZE = 20
+
 export default function Finance() {
   const { organization, loading: authLoading } = useAuth()
   const { toast } = useToast()
 
   const [transactions, setTransactions] = useState<any[]>([])
+  const [summaryData, setSummaryData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [transactionToEdit, setTransactionToEdit] = useState<any>(null)
   const [dateFilter, setDateFilter] = useState('30d')
+
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+
+  useEffect(() => {
+    setPage(1)
+  }, [dateFilter])
+
+  useEffect(() => {
+    if (authLoading) return
+    if (organization) {
+      fetchSummary()
+      fetchTransactions()
+    } else {
+      setLoading(false)
+    }
+  }, [organization, authLoading, dateFilter, page])
+
+  const buildDateQuery = (query: any) => {
+    const now = new Date()
+    if (dateFilter === '7d') {
+      now.setDate(now.getDate() - 7)
+      return query.gte('created_at', now.toISOString())
+    } else if (dateFilter === '30d') {
+      now.setDate(now.getDate() - 30)
+      return query.gte('created_at', now.toISOString())
+    } else if (dateFilter === 'this_month') {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      return query.gte('created_at', startOfMonth.toISOString())
+    }
+    return query
+  }
+
+  const fetchSummary = async () => {
+    if (!organization) return
+    try {
+      let query = supabase
+        .from('financial_transactions' as any)
+        .select('amount, type, created_at')
+        .eq('organization_id', organization.id)
+
+      query = buildDateQuery(query)
+
+      const { data, error } = await query
+      if (error) throw error
+      setSummaryData(data || [])
+    } catch (error: any) {
+      console.error('Error fetching summary:', error.message)
+    }
+  }
 
   const fetchTransactions = async () => {
     if (!organization) return
@@ -51,26 +104,21 @@ export default function Finance() {
     try {
       let query = supabase
         .from('financial_transactions' as any)
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('organization_id', organization.id)
         .order('created_at', { ascending: false })
 
-      const now = new Date()
-      if (dateFilter === '7d') {
-        now.setDate(now.getDate() - 7)
-        query = query.gte('created_at', now.toISOString())
-      } else if (dateFilter === '30d') {
-        now.setDate(now.getDate() - 30)
-        query = query.gte('created_at', now.toISOString())
-      } else if (dateFilter === 'this_month') {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-        query = query.gte('created_at', startOfMonth.toISOString())
-      }
+      query = buildDateQuery(query)
 
-      const { data, error } = await query
+      const from = (page - 1) * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+      query = query.range(from, to)
+
+      const { data, count, error } = await query
 
       if (error) throw error
       setTransactions(data || [])
+      if (count !== null) setTotalCount(count)
     } catch (error: any) {
       toast({
         title: 'Erro ao buscar transações',
@@ -82,14 +130,8 @@ export default function Finance() {
     }
   }
 
-  useEffect(() => {
-    if (authLoading) return
-    if (organization) fetchTransactions()
-    else setLoading(false)
-  }, [organization, authLoading, dateFilter])
-
   const summary = useMemo(() => {
-    return transactions.reduce(
+    return summaryData.reduce(
       (acc, t) => {
         const amount = Number(t.amount)
         if (t.type === 'INCOME' || t.type === 'REVENUE') {
@@ -106,12 +148,12 @@ export default function Finance() {
       },
       { income: 0, expense: 0, balance: 0 },
     )
-  }, [transactions])
+  }, [summaryData])
 
   const chartData = useMemo(() => {
     const dataByDate: Record<string, { date: string; income: number; expense: number }> = {}
 
-    transactions.forEach((t) => {
+    summaryData.forEach((t) => {
       const dateStr = new Date(t.created_at).toLocaleDateString('pt-BR', {
         month: 'short',
         day: 'numeric',
@@ -126,11 +168,12 @@ export default function Finance() {
     })
 
     return Object.values(dataByDate).reverse()
-  }, [transactions])
+  }, [summaryData])
 
   const exportCSV = () => {
     const headers = ['Data,Descricao,Tipo,Valor']
-    const rows = transactions.map((t) => {
+    // Exports only current view to avoid huge data loads in browser without full fetch
+    const rows = summaryData.map((t) => {
       const date = new Date(t.created_at).toLocaleDateString('pt-BR')
       const type =
         t.type === 'INCOME' || t.type === 'REVENUE'
@@ -141,7 +184,7 @@ export default function Finance() {
               ? 'Comissão (A Pagar)'
               : 'Estorno'
       const amount = Number(t.amount).toFixed(2)
-      return `"${date}","${t.description}","${type}",${amount}`
+      return `"${date}","${t.description || ''}","${type}",${amount}`
     })
     const csv = headers.concat(rows).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -160,6 +203,7 @@ export default function Finance() {
         .eq('id', id)
       if (error) throw error
       toast({ title: 'Transação excluída com sucesso!' })
+      fetchSummary()
       fetchTransactions()
     } catch (error: any) {
       toast({
@@ -181,7 +225,7 @@ export default function Finance() {
     },
   }
 
-  if (authLoading || loading) {
+  if (authLoading || (loading && transactions.length === 0)) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -328,7 +372,12 @@ export default function Finance() {
         <div className="p-6 border-b border-border/50">
           <h3 className="text-lg font-semibold">Histórico de Transações</h3>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto relative">
+          {loading && transactions.length > 0 && (
+            <div className="absolute inset-0 bg-background/50 z-10 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          )}
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -426,13 +475,42 @@ export default function Finance() {
             </TableBody>
           </Table>
         </div>
+        {totalCount > 0 && (
+          <div className="p-4 border-t flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Mostrando {(page - 1) * PAGE_SIZE + 1} a {Math.min(page * PAGE_SIZE, totalCount)} de{' '}
+              {totalCount} registros
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page * PAGE_SIZE >= totalCount}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Próximo
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {isModalOpen && (
         <NewTransactionModal
           open={isModalOpen}
           onOpenChange={setIsModalOpen}
-          onSuccess={fetchTransactions}
+          onSuccess={() => {
+            fetchSummary()
+            fetchTransactions()
+          }}
           organizationId={organization.id}
           transactionToEdit={transactionToEdit}
         />

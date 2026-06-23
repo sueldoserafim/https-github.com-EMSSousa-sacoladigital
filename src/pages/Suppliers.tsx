@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
-import { Plus, Search, Edit2, Trash2, TrendingUp, Package } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, TrendingUp, Package, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -26,67 +26,98 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
+const PAGE_SIZE = 20
+
 export default function Suppliers() {
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [purchaseStats, setPurchaseStats] = useState<any>({ topSupplier: null, totalSpent: 0 })
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null)
   const [supplierToDelete, setSupplierToDelete] = useState<any>(null)
+
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+
   const { organization } = useAuth()
   const { toast } = useToast()
 
-  const fetchSuppliers = async () => {
-    if (!organization) return
-    const [suppliersRes, poRes] = await Promise.all([
-      (supabase as any)
-        .from('suppliers')
-        .select('*')
-        .eq('organization_id', organization.id)
-        .order('name'),
-      (supabase as any)
-        .from('purchase_orders')
-        .select('supplier_id, total_amount, suppliers(name)')
-        .eq('organization_id', organization.id),
-    ])
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setPage(1)
+    }, 500)
+    return () => clearTimeout(handler)
+  }, [searchTerm])
 
-    if (poRes.data) {
-      const stats = poRes.data.reduce((acc: any, po: any) => {
+  useEffect(() => {
+    if (organization) {
+      fetchPurchaseStats()
+    }
+  }, [organization])
+
+  useEffect(() => {
+    if (organization) {
+      fetchSuppliers()
+    }
+  }, [organization, page, debouncedSearch])
+
+  const fetchPurchaseStats = async () => {
+    const { data } = await supabase
+      .from('purchase_orders')
+      .select('supplier_id, total_amount, suppliers(name)')
+      .eq('organization_id', organization!.id)
+
+    if (data) {
+      const stats = data.reduce((acc: any, po: any) => {
         if (!acc[po.supplier_id]) acc[po.supplier_id] = { name: po.suppliers?.name, total: 0 }
         acc[po.supplier_id].total += Number(po.total_amount)
         return acc
       }, {})
 
       const top = Object.values(stats).sort((a: any, b: any) => b.total - a.total)[0] as any
-      const total = poRes.data.reduce((sum: number, po: any) => sum + Number(po.total_amount), 0)
+      const total = data.reduce((sum: number, po: any) => sum + Number(po.total_amount), 0)
 
       setPurchaseStats({ topSupplier: top, totalSpent: total })
     }
+  }
 
-    if (suppliersRes.error) {
-      const error = suppliersRes.error
+  const fetchSuppliers = async () => {
+    setLoading(true)
+    let query = supabase
+      .from('suppliers')
+      .select('*', { count: 'exact' })
+      .eq('organization_id', organization!.id)
+      .order('name')
+
+    if (debouncedSearch) {
+      query = query.or(`name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`)
+    }
+
+    const from = (page - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+    query = query.range(from, to)
+
+    const { data, count, error } = await query
+
+    if (error) {
       toast({
         title: 'Erro ao carregar fornecedores',
         description: error.message,
         variant: 'destructive',
       })
     } else {
-      setSuppliers(suppliersRes.data || [])
+      setSuppliers(data || [])
+      if (count !== null) setTotalCount(count)
     }
     setLoading(false)
   }
 
-  useEffect(() => {
-    fetchSuppliers()
-  }, [organization])
-
   const handleDelete = async () => {
     if (!supplierToDelete) return
-    const { error } = await (supabase as any)
-      .from('suppliers')
-      .delete()
-      .eq('id', supplierToDelete.id)
+    const { error } = await supabase.from('suppliers').delete().eq('id', supplierToDelete.id)
     if (error) {
       toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' })
     } else {
@@ -95,12 +126,6 @@ export default function Suppliers() {
     }
     setSupplierToDelete(null)
   }
-
-  const filteredSuppliers = suppliers.filter(
-    (s) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.email?.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
 
   return (
     <div className="space-y-6">
@@ -183,17 +208,17 @@ export default function Suppliers() {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                    Carregando...
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
                   </TableCell>
                 </TableRow>
-              ) : filteredSuppliers.length === 0 ? (
+              ) : suppliers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                     Nenhum fornecedor encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredSuppliers.map((supplier) => (
+                suppliers.map((supplier) => (
                   <TableRow key={supplier.id}>
                     <TableCell className="font-medium">{supplier.name}</TableCell>
                     <TableCell>{supplier.email || '-'}</TableCell>
@@ -225,6 +250,32 @@ export default function Suppliers() {
               )}
             </TableBody>
           </Table>
+          {totalCount > 0 && (
+            <div className="p-4 border-t flex items-center justify-between bg-white rounded-b-xl">
+              <span className="text-sm text-muted-foreground">
+                Mostrando {(page - 1) * PAGE_SIZE + 1} a {Math.min(page * PAGE_SIZE, totalCount)} de{' '}
+                {totalCount} registros
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page * PAGE_SIZE >= totalCount}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Próximo
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

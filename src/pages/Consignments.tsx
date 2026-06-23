@@ -13,11 +13,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Plus, FileText, Trash2, ArrowLeftRight, AlertTriangle } from 'lucide-react'
+import { Plus, FileText, Trash2, ArrowLeftRight, AlertTriangle, Loader2 } from 'lucide-react'
 import { format, isPast, isToday, startOfDay } from 'date-fns'
 import { NewConsignmentModal } from '@/components/consignments/NewConsignmentModal'
 import { ConsignmentTermModal } from '@/components/consignments/ConsignmentTermModal'
 import { cn } from '@/lib/utils'
+
+const PAGE_SIZE = 20
 
 export default function Consignments() {
   const { organization } = useAuth()
@@ -28,21 +30,29 @@ export default function Consignments() {
   const [newModalOpen, setNewModalOpen] = useState(false)
   const [termModalOrder, setTermModalOrder] = useState<string | null>(null)
 
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+
   useEffect(() => {
     if (organization?.id) {
       fetchConsignments()
     }
-  }, [organization?.id])
+  }, [organization?.id, page])
 
   const fetchConsignments = async () => {
     setLoading(true)
-    const { data } = await supabase
+    const from = (page - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data, count } = await supabase
       .from('consignment_orders')
-      .select('*, sellers(name), consignment_items(quantity)')
+      .select('*, sellers(name), consignment_items(quantity)', { count: 'exact' })
       .eq('organization_id', organization!.id)
       .order('created_at', { ascending: false })
+      .range(from, to)
 
     setConsignments(data || [])
+    if (count !== null) setTotalCount(count)
     setLoading(false)
   }
 
@@ -130,7 +140,7 @@ export default function Consignments() {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8">
-                    Carregando...
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
                   </TableCell>
                 </TableRow>
               ) : consignments.length === 0 ? (
@@ -219,6 +229,32 @@ export default function Consignments() {
               )}
             </TableBody>
           </Table>
+          {totalCount > 0 && (
+            <div className="p-4 border-t flex items-center justify-between bg-white rounded-b-xl">
+              <span className="text-sm text-muted-foreground">
+                Mostrando {(page - 1) * PAGE_SIZE + 1} a {Math.min(page * PAGE_SIZE, totalCount)} de{' '}
+                {totalCount} registros
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page * PAGE_SIZE >= totalCount}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Próximo
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

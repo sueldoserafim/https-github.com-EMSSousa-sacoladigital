@@ -22,7 +22,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Pencil, Trash2, Plus, Copy, Check } from 'lucide-react'
+import { Pencil, Trash2, Plus, Copy, Check, Loader2 } from 'lucide-react'
+
+const PAGE_SIZE = 20
 
 export default function Sellers() {
   const { organization } = useAuth()
@@ -37,12 +39,15 @@ export default function Sellers() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+
   useEffect(() => {
     if (organization?.id) {
-      fetchSellers()
       fetchProfiles()
+      fetchSellers()
     }
-  }, [organization?.id])
+  }, [organization?.id, page])
 
   const fetchProfiles = async () => {
     const { data } = await supabase
@@ -54,13 +59,18 @@ export default function Sellers() {
 
   const fetchSellers = async () => {
     setLoading(true)
-    const { data } = await supabase
+    const from = (page - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    const { data, count } = await supabase
       .from('sellers' as any)
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('organization_id', organization!.id)
       .order('created_at', { ascending: false })
+      .range(from, to)
 
     setSellers(data || [])
+    if (count !== null) setTotalCount(count)
     setLoading(false)
   }
 
@@ -177,13 +187,13 @@ export default function Sellers() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8">
-                    Carregando...
+                  <TableCell colSpan={5} className="text-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
                   </TableCell>
                 </TableRow>
               ) : sellers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8">
+                  <TableCell colSpan={5} className="text-center py-8">
                     Nenhuma vendedora cadastrada.
                   </TableCell>
                 </TableRow>
@@ -234,6 +244,32 @@ export default function Sellers() {
               )}
             </TableBody>
           </Table>
+          {totalCount > 0 && (
+            <div className="p-4 border-t flex items-center justify-between bg-white rounded-b-xl">
+              <span className="text-sm text-muted-foreground">
+                Mostrando {(page - 1) * PAGE_SIZE + 1} a {Math.min(page * PAGE_SIZE, totalCount)} de{' '}
+                {totalCount} registros
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page * PAGE_SIZE >= totalCount}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Próximo
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
