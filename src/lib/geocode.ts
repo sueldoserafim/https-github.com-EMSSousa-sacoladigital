@@ -3,6 +3,7 @@ export async function geocodeAddress(
 ): Promise<{ lat: number; lng: number } | null> {
   if (!address) return null
   try {
+    console.log(address)
     const cleanAddress = address
       .replace(/Nº\s*/gi, '')
       .replace(/nº\s*/gi, '')
