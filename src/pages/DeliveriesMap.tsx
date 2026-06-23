@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { DeliveriesPanel } from '@/components/deliveries/DeliveriesPanel'
@@ -45,10 +45,14 @@ function Polyline({
   positions,
   zoom,
   centerCoords,
+  dashed = false,
+  color = '#2563eb',
 }: {
   positions: { lat: number; lng: number }[]
   zoom: number
   centerCoords: { x: number; y: number }
+  dashed?: boolean
+  color?: string
 }) {
   if (positions.length < 2) return null
 
@@ -60,14 +64,15 @@ function Polyline({
     .join(' ')
 
   return (
-    <svg className="absolute overflow-visible pointer-events-none" style={{ left: 0, top: 0 }}>
+    <svg className="absolute overflow-visible pointer-events-none z-10" style={{ left: 0, top: 0 }}>
       <polyline
         points={points}
         fill="none"
-        stroke="#2563eb"
+        stroke={color}
         strokeWidth="4"
         strokeLinejoin="round"
         strokeLinecap="round"
+        strokeDasharray={dashed ? '8, 8' : 'none'}
       />
     </svg>
   )
@@ -82,7 +87,7 @@ function InteractiveMap({
   routePoints,
   activeOrderId,
   onOrderClick,
-  driverLocations = {},
+  trackingData = {},
 }: any) {
   const [internalCenter, setInternalCenter] = useState({ lat: centerLat, lng: centerLng })
   const [currentZoom, setCurrentZoom] = useState(zoom)
@@ -348,22 +353,44 @@ function InteractiveMap({
             )
           })()}
 
-        {Object.entries(driverLocations).map(([orderId, pos]: [string, any]) => {
-          const px = getPixelsFromCoords(pos.lat, pos.lng, currentZoom, centerCoords)
+        {Object.entries(trackingData).map(([orderId, data]: [string, any]) => {
+          if (!data || data.points.length === 0) return null
+          const lastPoint = data.points[data.points.length - 1]
+          const px = getPixelsFromCoords(lastPoint.lat, lastPoint.lng, currentZoom, centerCoords)
+
           return (
-            <div
-              key={`driver-${orderId}`}
-              className="absolute flex flex-col items-center justify-center z-30"
-              style={{
-                left: px.x,
-                top: px.y,
-                transform: 'translate(-50%, -50%)',
-              }}
-              title="Localização atual do entregador"
-            >
-              <div className="bg-green-500 w-4 h-4 rounded-full border-2 border-white shadow animate-pulse" />
-              <div className="absolute inset-0 rounded-full border border-green-500 animate-ping opacity-75" />
-            </div>
+            <Fragment key={`tracking-${orderId}`}>
+              {data.points.length > 1 && (
+                <Polyline
+                  positions={data.points}
+                  zoom={currentZoom}
+                  centerCoords={centerCoords}
+                  dashed
+                  color="#ef4444"
+                />
+              )}
+              <div
+                className="absolute flex flex-col items-center justify-center z-40 group"
+                style={{
+                  left: px.x,
+                  top: px.y,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                <div className="bg-red-500 w-5 h-5 rounded-full border-2 border-white shadow-lg animate-pulse flex items-center justify-center">
+                  <div className="bg-white w-1.5 h-1.5 rounded-full" />
+                </div>
+                <div className="absolute inset-0 rounded-full border border-red-500 animate-ping opacity-75" />
+
+                <div className="absolute bottom-full mb-2 bg-black/90 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                  Entregador <br />
+                  <span className="text-red-400 font-medium">
+                    {data.distance.toFixed(2)} km
+                  </span>{' '}
+                  percorridos
+                </div>
+              </div>
+            </Fragment>
           )
         })}
 
@@ -448,10 +475,23 @@ export default function DeliveriesMap() {
   const [routePoints, setRoutePoints] = useState<{ lat: number; lng: number }[]>([])
   const [isRouting, setIsRouting] = useState(false)
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null)
-  const [driverLocations, setDriverLocations] = useState<
-    Record<string, { lat: number; lng: number }>
+  const [trackingData, setTrackingData] = useState<
+    Record<string, { points: { lat: number; lng: number }[]; distance: number }>
   >({})
   const { toast } = useToast()
+
+  const getDistanceFromLatLonInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371
+    const dLat = (lat2 - lat1) * (Math.PI / 180)
+    const dLon = (lon2 - lon1) * (Math.PI / 180)
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2)
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
 
   useEffect(() => {
     if (organization) {
@@ -470,11 +510,33 @@ export default function DeliveriesMap() {
           (payload) => {
             const { order_id, lat, lng } = payload.new as any
             if (order_id && lat && lng) {
-              setDriverLocations((prev) => ({ ...prev, [order_id]: { lat, lng } }))
+              setTrackingData((prev) => {
+                const prevData = prev[order_id] || { points: [], distance: 0 }
+                let newDistance = prevData.distance
+                if (prevData.points.length > 0) {
+                  const lastPoint = prevData.points[prevData.points.length - 1]
+                  newDistance += getDistanceFromLatLonInKm(lastPoint.lat, lastPoint.lng, lat, lng)
+                }
+                const newPoints = [...prevData.points, { lat, lng }]
+                if (newPoints.length > 200) {
+                  newPoints.shift()
+                }
+                return {
+                  ...prev,
+                  [order_id]: {
+                    points: newPoints,
+                    distance: newDistance,
+                  },
+                }
+              })
             }
           },
         )
-        .subscribe()
+        .subscribe((status, err) => {
+          if (err) {
+            console.warn('Realtime subscription error:', err)
+          }
+        })
 
       return () => {
         supabase.removeChannel(channel)
@@ -496,7 +558,7 @@ export default function DeliveriesMap() {
       supabase
         .from('orders')
         .select('*, customers(name, address, lat, lng)')
-        .eq('status', 'Pronto p/ entrega')
+        .in('status', ['Pronto p/ entrega', 'Saiu para entrega'])
         .eq('organization_id', organization?.id),
     ])
 
@@ -522,22 +584,46 @@ export default function DeliveriesMap() {
         lng: o.customers?.lng ?? o.delivery_lng,
       }))
       setOrders(mappedOrders)
+
+      const orderIds = mappedOrders.map((o) => o.id)
+      if (orderIds.length > 0) {
+        const { data: trackingHistory } = await supabase
+          .from('delivery_tracking')
+          .select('order_id, lat, lng')
+          .in('order_id', orderIds)
+          .order('timestamp', { ascending: true })
+
+        const newTrackingData: Record<
+          string,
+          { points: { lat: number; lng: number }[]; distance: number }
+        > = {}
+
+        if (trackingHistory) {
+          trackingHistory.forEach((point) => {
+            if (!newTrackingData[point.order_id]) {
+              newTrackingData[point.order_id] = { points: [], distance: 0 }
+            }
+            const data = newTrackingData[point.order_id]
+            if (data.points.length > 0) {
+              const lastPoint = data.points[data.points.length - 1]
+              data.distance += getDistanceFromLatLonInKm(
+                lastPoint.lat,
+                lastPoint.lng,
+                point.lat,
+                point.lng,
+              )
+            }
+            data.points.push({ lat: point.lat, lng: point.lng })
+            if (data.points.length > 200) {
+              data.points.shift()
+            }
+          })
+        }
+        setTrackingData(newTrackingData)
+      }
     }
 
     setLoading(false)
-  }
-
-  const getDistanceFromLatLonInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371
-    const dLat = (lat2 - lat1) * (Math.PI / 180)
-    const dLon = (lon2 - lon1) * (Math.PI / 180)
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) *
-        Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2)
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   }
 
   const handleSuggestRoute = async () => {
@@ -640,7 +726,7 @@ export default function DeliveriesMap() {
               routePoints={routePoints}
               activeOrderId={activeOrderId}
               onOrderClick={setActiveOrderId}
-              driverLocations={driverLocations}
+              trackingData={trackingData}
             />
           )}
         </div>
