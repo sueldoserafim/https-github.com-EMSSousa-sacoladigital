@@ -3,11 +3,10 @@ export async function geocodeAddress(
 ): Promise<{ lat: number; lng: number } | null> {
   if (!address) return null
   try {
-    const cleanAddress = address
+    const cleanAddress = 'rua seis de janeiro 328 mossoro rn'
       .replace(/Nº\s*/gi, '')
       .replace(/nº\s*/gi, '')
       .replace(/n\.\s*/gi, '')
-    console.log(cleanAddress)
     let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanAddress)}&limit=1`
     let response = await fetch(url, {
       headers: {
