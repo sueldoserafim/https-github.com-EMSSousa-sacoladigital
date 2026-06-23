@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { DeliveriesPanel } from '@/components/deliveries/DeliveriesPanel'
-import { Store } from 'lucide-react'
+import { Store, Plus, Minus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { getOptimizedRoute } from '@/lib/routing'
 
@@ -18,6 +18,14 @@ function getTileCoords(lat: number, lng: number, zoom: number) {
   const latRad = (lat * Math.PI) / 180
   const y = ((1.0 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2.0) * n
   return { x, y }
+}
+
+function getLatLngFromTileCoords(x: number, y: number, zoom: number) {
+  const n = Math.pow(2, zoom)
+  const lng = (x / n) * 360 - 180
+  const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n)))
+  const lat = (latRad * 180) / Math.PI
+  return { lat, lng }
 }
 
 function getPixelsFromCoords(
@@ -75,33 +83,167 @@ function InteractiveMap({
   activeOrderId,
   onOrderClick,
 }: any) {
-  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [internalCenter, setInternalCenter] = useState({ lat: centerLat, lng: centerLng })
+  const [currentZoom, setCurrentZoom] = useState(zoom)
   const [isDragging, setIsDragging] = useState(false)
+
+  const mapRef = useRef<HTMLDivElement>(null)
   const lastMouse = useRef({ x: 0, y: 0 })
+  const touchStartDist = useRef<number | null>(null)
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true)
-    lastMouse.current = { x: e.clientX, y: e.clientY }
+  const stateRef = useRef({ zoom: currentZoom, center: internalCenter })
+
+  useEffect(() => {
+    stateRef.current = { zoom: currentZoom, center: internalCenter }
+  }, [currentZoom, internalCenter])
+
+  useEffect(() => {
+    const newCenter = { lat: centerLat, lng: centerLng }
+    setInternalCenter(newCenter)
+    stateRef.current.center = newCenter
+  }, [centerLat, centerLng])
+
+  const performZoom = (deltaZoom: number, clientX?: number, clientY?: number) => {
+    const currentState = stateRef.current
+    const newZoom = Math.min(Math.max(currentState.zoom + deltaZoom, 3), 18)
+    if (newZoom === currentState.zoom) return
+
+    let newCenter = currentState.center
+
+    if (clientX !== undefined && clientY !== undefined && mapRef.current) {
+      const rect = mapRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+
+      const dx = clientX - centerX
+      const dy = clientY - centerY
+
+      const centerCoords = getTileCoords(
+        currentState.center.lat,
+        currentState.center.lng,
+        currentState.zoom,
+      )
+      const cursorTileX = centerCoords.x + dx / 256
+      const cursorTileY = centerCoords.y + dy / 256
+
+      const cursorLatLng = getLatLngFromTileCoords(cursorTileX, cursorTileY, currentState.zoom)
+
+      const newCursorTileCoords = getTileCoords(cursorLatLng.lat, cursorLatLng.lng, newZoom)
+
+      const newCenterTileX = newCursorTileCoords.x - dx / 256
+      const newCenterTileY = newCursorTileCoords.y - dy / 256
+
+      newCenter = getLatLngFromTileCoords(newCenterTileX, newCenterTileY, newZoom)
+    }
+
+    stateRef.current = { zoom: newZoom, center: newCenter }
+    setCurrentZoom(newZoom)
+    setInternalCenter(newCenter)
   }
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const performZoomRef = useRef(performZoom)
+  performZoomRef.current = performZoom
+
+  const lastZoomTime = useRef(0)
+
+  useEffect(() => {
+    const el = mapRef.current
+    if (!el) return
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const now = Date.now()
+      if (now - lastZoomTime.current > 50) {
+        if (e.deltaY < 0) {
+          performZoomRef.current(1, e.clientX, e.clientY)
+        } else if (e.deltaY > 0) {
+          performZoomRef.current(-1, e.clientX, e.clientY)
+        }
+        lastZoomTime.current = now
+      }
+    }
+
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
+  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if ('touches' in e) {
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY,
+        )
+        touchStartDist.current = dist
+      } else if (e.touches.length === 1) {
+        setIsDragging(true)
+        lastMouse.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      }
+    } else {
+      setIsDragging(true)
+      lastMouse.current = { x: (e as React.MouseEvent).clientX, y: (e as React.MouseEvent).clientY }
+    }
+  }
+
+  const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if ('touches' in e && e.touches.length === 2 && touchStartDist.current !== null) {
+      const clientX = (e.touches[0].clientX + e.touches[1].clientX) / 2
+      const clientY = (e.touches[0].clientY + e.touches[1].clientY) / 2
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
+      )
+      if (dist > touchStartDist.current + 30) {
+        performZoom(1, clientX, clientY)
+        touchStartDist.current = dist
+      } else if (dist < touchStartDist.current - 30) {
+        performZoom(-1, clientX, clientY)
+        touchStartDist.current = dist
+      }
+      return
+    }
+
     if (!isDragging) return
-    const dx = e.clientX - lastMouse.current.x
-    const dy = e.clientY - lastMouse.current.y
-    setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }))
-    lastMouse.current = { x: e.clientX, y: e.clientY }
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY
+
+    const dx = clientX - lastMouse.current.x
+    const dy = clientY - lastMouse.current.y
+
+    const currentState = stateRef.current
+    const centerCoords = getTileCoords(
+      currentState.center.lat,
+      currentState.center.lng,
+      currentState.zoom,
+    )
+    const newCenterX = centerCoords.x - dx / 256
+    const newCenterY = centerCoords.y - dy / 256
+
+    const newCenter = getLatLngFromTileCoords(newCenterX, newCenterY, currentState.zoom)
+
+    stateRef.current.center = newCenter
+    setInternalCenter(newCenter)
+    lastMouse.current = { x: clientX, y: clientY }
   }
 
-  const handleMouseUp = () => setIsDragging(false)
+  const handlePointerUp = () => {
+    setIsDragging(false)
+    touchStartDist.current = null
+  }
 
-  const centerCoords = getTileCoords(centerLat, centerLng, zoom)
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    performZoom(1, e.clientX, e.clientY)
+  }
+
+  const centerCoords = getTileCoords(internalCenter.lat, internalCenter.lng, currentZoom)
 
   const TILE_SIZE = 256
   const tiles = []
-  const startX = Math.floor(centerCoords.x) - 4
-  const endX = Math.floor(centerCoords.x) + 4
-  const startY = Math.floor(centerCoords.y) - 4
-  const endY = Math.floor(centerCoords.y) + 4
+  const startX = Math.floor(centerCoords.x) - 5
+  const endX = Math.floor(centerCoords.x) + 5
+  const startY = Math.floor(centerCoords.y) - 5
+  const endY = Math.floor(centerCoords.y) + 5
 
   for (let x = startX; x <= endX; x++) {
     for (let y = startY; y <= endY; y++) {
@@ -115,22 +257,47 @@ function InteractiveMap({
 
   return (
     <div
+      ref={mapRef}
       className={`relative w-full h-full overflow-hidden bg-[#e5e3df] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseDown={handlePointerDown}
+      onMouseMove={handlePointerMove}
+      onMouseUp={handlePointerUp}
+      onMouseLeave={handlePointerUp}
+      onTouchStart={handlePointerDown}
+      onTouchMove={handlePointerMove}
+      onTouchEnd={handlePointerUp}
+      onDoubleClick={handleDoubleClick}
     >
-      <div
-        className="absolute top-1/2 left-1/2"
-        style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}
-      >
+      <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-50">
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            performZoom(1)
+          }}
+          className="bg-white p-2 rounded-md shadow hover:bg-gray-100 flex items-center justify-center w-8 h-8 border border-border"
+          title="Zoom In"
+        >
+          <Plus className="w-4 h-4 text-gray-700" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            performZoom(-1)
+          }}
+          className="bg-white p-2 rounded-md shadow hover:bg-gray-100 flex items-center justify-center w-8 h-8 border border-border"
+          title="Zoom Out"
+        >
+          <Minus className="w-4 h-4 text-gray-700" />
+        </button>
+      </div>
+
+      <div className="absolute top-1/2 left-1/2" style={{ transform: `translate(0px, 0px)` }}>
         {tiles.map((t) => {
-          const s = String.fromCharCode(97 + ((t.x + t.y) % 3))
+          const s = String.fromCharCode(97 + ((Math.abs(t.x) + Math.abs(t.y)) % 3))
           return (
             <img
-              key={`${zoom}-${t.x}-${t.y}`}
-              src={`https://${s}.tile.openstreetmap.org/${zoom}/${t.x}/${t.y}.png`}
+              key={`${currentZoom}-${t.x}-${t.y}`}
+              src={`https://${s}.tile.openstreetmap.org/${currentZoom}/${t.x}/${t.y}.png`}
               className="absolute max-w-none pointer-events-none"
               style={{
                 left: t.left,
@@ -145,12 +312,17 @@ function InteractiveMap({
         })}
 
         {routePoints && routePoints.length > 0 && (
-          <Polyline positions={routePoints} zoom={zoom} centerCoords={centerCoords} />
+          <Polyline positions={routePoints} zoom={currentZoom} centerCoords={centerCoords} />
         )}
 
         {storeLocation &&
           (() => {
-            const px = getPixelsFromCoords(storeLocation.lat, storeLocation.lng, zoom, centerCoords)
+            const px = getPixelsFromCoords(
+              storeLocation.lat,
+              storeLocation.lng,
+              currentZoom,
+              centerCoords,
+            )
             return (
               <div
                 className="absolute flex flex-col items-center justify-end z-20 group"
@@ -176,7 +348,7 @@ function InteractiveMap({
           })()}
 
         {validOrders.map((o: any) => {
-          const px = getPixelsFromCoords(o.lat, o.lng, zoom, centerCoords)
+          const px = getPixelsFromCoords(o.lat, o.lng, currentZoom, centerCoords)
           const isPopupOpen = activeOrderId === o.id
 
           return (
@@ -195,6 +367,7 @@ function InteractiveMap({
                   e.stopPropagation()
                   onOrderClick(isPopupOpen ? null : o.id)
                 }}
+                onDoubleClick={(e) => e.stopPropagation()}
               >
                 <div
                   className={`absolute -inset-1 rounded-full blur-sm opacity-40 ${isPopupOpen ? 'bg-primary' : 'hidden'}`}
@@ -216,6 +389,7 @@ function InteractiveMap({
                 <div
                   className="absolute bottom-full mb-1 w-64 bg-white border border-border rounded-lg shadow-xl z-50 p-3 flex flex-col gap-1 cursor-auto text-left"
                   onClick={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-start">
                     <p className="font-bold text-sm text-foreground leading-tight">
