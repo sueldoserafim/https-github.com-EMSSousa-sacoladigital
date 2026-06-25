@@ -5,6 +5,7 @@
     "notify-preorder-ready": 5,
     "segment-customers": 4,
     "notify-back-in-stock": 4,
-    "send-marketing-campaign": 5
+    "send-marketing-campaign": 5,
+    "create-user": 1
   }
 }
