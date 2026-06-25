@@ -40,7 +40,13 @@ export default function DeliveryTracking() {
         customers (name, phone, address)
       `)
       .eq('delivery_person_id', driverData.id)
-      .in('status', ['Em Rota de Entrega', 'Pronto para Entrega', 'Pendente', 'Novo'])
+      .in('status', [
+        'Em Rota de Entrega',
+        'Pronto p/ entrega',
+        'Pronto para Entrega',
+        'Pendente',
+        'Novo',
+      ])
       .order('created_at', { ascending: false })
 
     if (!error && data) {
