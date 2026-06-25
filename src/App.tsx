@@ -35,6 +35,7 @@ import Consignments from './pages/Consignments'
 import DeliveriesMap from './pages/DeliveriesMap'
 import RouteHistory from './pages/RouteHistory'
 import Returns from './pages/Returns'
+import Drivers from './pages/Drivers'
 import Automations from './pages/Automations'
 import DeliveryTracking from './pages/DeliveryTracking'
 import { MasterLayout } from './components/layouts/MasterLayout'
@@ -113,6 +114,7 @@ const App = () => (
                 <Route path="/route-history" element={<RouteHistory />} />
                 <Route path="/returns" element={<Returns />} />
                 <Route path="/automations" element={<Automations />} />
+                <Route path="/drivers" element={<Drivers />} />
               </Route>
             </Route>
           </Route>

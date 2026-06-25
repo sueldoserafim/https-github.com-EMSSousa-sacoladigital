@@ -1,67 +1,53 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { corsHeaders } from './cors.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } },
-    )
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser()
-    if (authError || !user) throw new Error('Unauthorized')
-
-    const { data: profile } = await supabaseClient
-      .from('profiles')
-      .select('role, organization_id')
-      .eq('id', user.id)
-      .single()
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin'))
-      throw new Error('Forbidden')
-
-    const { email, password, full_name, role } = await req.json()
-
-    const supabaseAdmin = createClient(
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    const body = await req.json()
+    const { email, password, full_name, role, organization_id } = body
+
+    const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
+      user_metadata: { name: full_name },
     })
 
-    if (createError) throw createError
+    if (error) throw error
 
+    // Wait a brief moment to ensure trigger has created the profile
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    const { error: profileError } = await supabaseAdmin
+    // Update the automatically created profile with role and organization_id
+    const { error: profileError } = await supabase
       .from('profiles')
       .update({
-        organization_id: profile.organization_id,
         full_name,
-        role,
+        role: role || 'member',
+        organization_id,
       })
-      .eq('id', newUser.user.id)
+      .eq('id', data.user.id)
 
     if (profileError) {
       console.error('Profile update error:', profileError)
     }
 
-    return new Response(JSON.stringify({ user: newUser.user }), {
+    return new Response(JSON.stringify({ user: data.user }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     })
