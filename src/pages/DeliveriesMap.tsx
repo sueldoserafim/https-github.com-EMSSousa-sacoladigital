@@ -88,6 +88,7 @@ function InteractiveMap({
   activeOrderId,
   onOrderClick,
   trackingData = {},
+  isDriver,
 }: any) {
   const [internalCenter, setInternalCenter] = useState({ lat: centerLat, lng: centerLng })
   const [currentZoom, setCurrentZoom] = useState(zoom)
@@ -354,7 +355,8 @@ function InteractiveMap({
           })()}
 
         {Object.entries(trackingData).map(([orderId, data]: [string, any]) => {
-          if (!data || data.points.length === 0) return null
+          const isActiveOrder = orders.some((o: any) => o.id === orderId)
+          if (!data || data.points.length === 0 || !isActiveOrder) return null
           const lastPoint = data.points[data.points.length - 1]
           const px = getPixelsFromCoords(lastPoint.lat, lastPoint.lng, currentZoom, centerCoords)
 
@@ -406,6 +408,7 @@ function InteractiveMap({
 
           const px = getPixelsFromCoords(offsetLat, offsetLng, currentZoom, centerCoords)
           const isPopupOpen = activeOrderId === o.id
+          const hidePopup = isDriver && o.status === 'Saiu para entrega'
 
           return (
             <div
@@ -441,7 +444,7 @@ function InteractiveMap({
                 />
               </div>
 
-              {isPopupOpen && (
+              {isPopupOpen && !hidePopup && (
                 <div
                   className="absolute bottom-full mb-1 w-64 bg-white border border-border rounded-lg shadow-xl z-50 p-3 flex flex-col gap-1 cursor-auto text-left relative"
                   onClick={(e) => e.stopPropagation()}
@@ -501,6 +504,7 @@ export default function DeliveriesMap() {
   const [trackingData, setTrackingData] = useState<
     Record<string, { points: { lat: number; lng: number }[]; distance: number }>
   >({})
+  const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [accessDenied, setAccessDenied] = useState(false)
   const { toast } = useToast()
 
@@ -681,6 +685,8 @@ export default function DeliveriesMap() {
           })
         }
         setTrackingData(newTrackingData)
+      } else {
+        setTrackingData({})
       }
     }
 
@@ -691,14 +697,15 @@ export default function DeliveriesMap() {
     const isDelivery = profile?.role === 'driver' || profile?.role === 'delivery'
     if (isDelivery && activeOrderId) {
       const order = orders.find((o) => o.id === activeOrderId)
-      if (order && order.lat && order.lng && storeLocation) {
-        getOptimizedRoute(storeLocation, [{ lat: order.lat, lng: order.lng }])
+      const startPoint = driverLocation || storeLocation
+      if (order && order.lat && order.lng && startPoint) {
+        getOptimizedRoute(startPoint, [{ lat: order.lat, lng: order.lng }])
           .then((points) => {
             if (points.length > 0) setRoutePoints(points)
-            else setRoutePoints([storeLocation, { lat: order.lat, lng: order.lng }])
+            else setRoutePoints([startPoint, { lat: order.lat, lng: order.lng }])
           })
           .catch(() => {
-            setRoutePoints([storeLocation, { lat: order.lat, lng: order.lng }])
+            setRoutePoints([startPoint, { lat: order.lat, lng: order.lng }])
           })
       } else {
         setRoutePoints([])
@@ -706,7 +713,45 @@ export default function DeliveriesMap() {
     } else {
       setRoutePoints([])
     }
-  }, [activeOrderId, orders, storeLocation, profile])
+  }, [activeOrderId, orders, storeLocation, profile, driverLocation])
+
+  useEffect(() => {
+    let watchId: number | null = null
+    const isDriver = profile?.role === 'driver' || profile?.role === 'delivery'
+
+    if (isDriver && activeOrderId) {
+      const activeOrder = orders.find((o) => o.id === activeOrderId)
+      if (activeOrder && activeOrder.status === 'Saiu para entrega') {
+        if ('geolocation' in navigator) {
+          watchId = navigator.geolocation.watchPosition(
+            async (position) => {
+              const { latitude, longitude } = position.coords
+              setDriverLocation({ lat: latitude, lng: longitude })
+
+              if (organization?.id) {
+                await supabase.from('delivery_tracking').insert({
+                  order_id: activeOrderId,
+                  organization_id: organization.id,
+                  lat: latitude,
+                  lng: longitude,
+                })
+              }
+            },
+            (error) => {
+              console.warn('Erro ao obter localização do entregador:', error)
+            },
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 },
+          )
+        }
+      }
+    }
+
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId)
+      }
+    }
+  }, [activeOrderId, orders, profile, organization])
 
   let centerLat = -23.5505
   let centerLng = -46.6333
@@ -762,6 +807,7 @@ export default function DeliveriesMap() {
               activeOrderId={activeOrderId}
               onOrderClick={setActiveOrderId}
               trackingData={trackingData}
+              isDriver={profile?.role === 'driver' || profile?.role === 'delivery'}
             />
           )}
           {!loading && orders.length === 0 && (

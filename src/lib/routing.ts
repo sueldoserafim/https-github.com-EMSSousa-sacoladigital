@@ -2,10 +2,10 @@ export async function getOptimizedRoute(
   storeLocation: { lat: number; lng: number },
   waypoints: { lat: number; lng: number }[],
 ): Promise<{ lat: number; lng: number }[]> {
-  const MAX_WAYPOINTS = 48 // Ensure total points (start + waypoints + end) do not exceed 50
+  const MAX_WAYPOINTS = 48 // Ensure total points (start + waypoints) do not exceed 50
   const limitedWaypoints = waypoints.slice(0, MAX_WAYPOINTS)
 
-  const coords = [storeLocation, ...limitedWaypoints, storeLocation]
+  const coords = [storeLocation, ...limitedWaypoints]
 
   const coordsString = coords.map((c) => `${c.lng},${c.lat}`).join(';')
   const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?geometries=geojson&overview=full&continue_straight=true`
