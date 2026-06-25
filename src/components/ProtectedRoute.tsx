@@ -33,7 +33,10 @@ export function ProtectedRoute({ allowedRoles = [] }: { allowedRoles?: string[] 
           return <Navigate to="/seller/dashboard" replace />
         }
       } else if (role === 'driver' || role === 'delivery') {
-        return <Navigate to="/tracking/delivery" replace />
+        const deliveryAllowed = ['/tracking/delivery', '/deliveries-map']
+        if (!deliveryAllowed.some((path) => location.pathname.startsWith(path))) {
+          return <Navigate to="/tracking/delivery" replace />
+        }
       } else {
         return <Navigate to="/dashboard" replace />
       }
@@ -45,7 +48,7 @@ export function ProtectedRoute({ allowedRoles = [] }: { allowedRoles?: string[] 
         return <Navigate to="/seller/dashboard" replace />
       }
     } else if (role === 'driver' || role === 'delivery') {
-      const deliveryAllowed = ['/tracking/delivery']
+      const deliveryAllowed = ['/tracking/delivery', '/deliveries-map']
       if (!deliveryAllowed.some((path) => location.pathname.startsWith(path))) {
         return <Navigate to="/tracking/delivery" replace />
       }
