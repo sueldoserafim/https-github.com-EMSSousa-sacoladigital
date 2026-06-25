@@ -49,9 +49,10 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 export default function Dashboard() {
-  const { organization, profile, isSuperAdmin, loading: authLoading } = useAuth()
+  const { organization, profile, isSuperAdmin, loading: authLoading, user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [alerts, setAlerts] = useState<any[]>([])
+  const [driverOrders, setDriverOrders] = useState<any[]>([])
   const [conversionStats, setConversionStats] = useState({ visits: 0, conversionRate: 0 })
   const [stats, setStats] = useState({
     netProfitCurrent: 0,
@@ -80,6 +81,39 @@ export default function Dashboard() {
 
     if (isSuperAdmin) {
       setLoading(false)
+      return
+    }
+
+    if (profile?.role === 'driver' || profile?.role === 'delivery') {
+      const fetchDriverData = async () => {
+        try {
+          if (user) {
+            const { data: driver } = await supabase
+              .from('drivers')
+              .select('id')
+              .eq('user_id', user.id)
+              .single()
+
+            if (driver) {
+              const { data: orders } = await supabase
+                .from('orders')
+                .select(
+                  'id, order_number, created_at, total, status, delivery_address, customers(name, phone)',
+                )
+                .eq('delivery_person_id', driver.id)
+                .eq('status', 'Pronto p/ entrega')
+                .order('created_at', { ascending: false })
+
+              setDriverOrders(orders || [])
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching driver dashboard data:', error)
+        } finally {
+          setLoading(false)
+        }
+      }
+      fetchDriverData()
       return
     }
 
@@ -341,7 +375,7 @@ export default function Dashboard() {
     }
 
     fetchDashboardData()
-  }, [organization, authLoading, isSuperAdmin])
+  }, [organization, authLoading, isSuperAdmin, profile?.role, user])
 
   const handleSendOffer = async (customerId: string, customerName: string) => {
     toast({
@@ -381,6 +415,81 @@ export default function Dashboard() {
 
   if (isSuperAdmin) {
     return <MasterDashboard />
+  }
+
+  if (profile?.role === 'driver' || profile?.role === 'delivery') {
+    return (
+      <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in-up bg-background">
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">Minhas Entregas</h1>
+              <p className="text-muted-foreground mt-1">
+                Pedidos prontos para entrega atribuídos a você.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {driverOrders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-12 border rounded-lg bg-muted/20 text-center space-y-3">
+            <Package className="w-12 h-12 text-muted-foreground/50" />
+            <div>
+              <p className="font-medium text-foreground">Nenhuma entrega pendente</p>
+              <p className="text-sm text-muted-foreground">
+                Você não possui pedidos com status "Pronto p/ entrega" no momento.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {driverOrders.map((order) => (
+              <Card key={order.id} className="shadow-sm border-border/50">
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg">{order.order_number}</CardTitle>
+                      <CardDescription>
+                        {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}
+                      </CardDescription>
+                    </div>
+                    <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800">
+                      Pronto p/ entrega
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Cliente</p>
+                    <p className="font-medium">{order.customers?.name || 'Cliente Avulso'}</p>
+                    {order.customers?.phone && (
+                      <p className="text-sm text-muted-foreground">{order.customers.phone}</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      Endereço de Entrega
+                    </p>
+                    <p className="text-sm">{order.delivery_address || 'Endereço não informado'}</p>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Total</span>
+                      <span className="font-bold">
+                        {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL',
+                        }).format(order.total || 0)}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   if (!organization) {
