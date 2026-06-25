@@ -443,17 +443,18 @@ function InteractiveMap({
 
               {isPopupOpen && (
                 <div
-                  className="absolute bottom-full mb-1 w-64 bg-white border border-border rounded-lg shadow-xl z-50 p-3 flex flex-col gap-1 cursor-auto text-left"
+                  className="absolute bottom-full mb-1 w-64 bg-white border border-border rounded-lg shadow-xl z-50 p-3 flex flex-col gap-1 cursor-auto text-left relative"
                   onClick={(e) => e.stopPropagation()}
                   onDoubleClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start pr-4">
                     <p className="font-bold text-sm text-foreground leading-tight">
+                      <span className="text-primary mr-1">{o.order_number}</span>
                       {o.customers?.name || 'Cliente Desconhecido'}
                     </p>
                     <button
                       onClick={() => onOrderClick(null)}
-                      className="text-muted-foreground hover:text-foreground shrink-0 ml-2"
+                      className="text-muted-foreground hover:text-foreground shrink-0 absolute top-2 right-2"
                     >
                       &times;
                     </button>
@@ -477,7 +478,7 @@ function InteractiveMap({
 }
 
 export default function DeliveriesMap() {
-  const { organization } = useAuth()
+  const { organization, profile, user } = useAuth()
   const [orders, setOrders] = useState<any[]>([])
   const [storeLocation, setStoreLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -556,6 +557,34 @@ export default function DeliveriesMap() {
   const loadData = async () => {
     setLoading(true)
 
+    const isDelivery = profile?.role === 'driver' || profile?.role === 'delivery'
+    let driverId = null
+
+    if (isDelivery && user) {
+      const { data: driverData } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+      if (driverData) {
+        driverId = driverData.id
+      }
+    }
+
+    let ordersQuery = supabase
+      .from('orders')
+      .select('*, customers(name, address, lat, lng)')
+      .in('status', ['Pronto p/ entrega', 'Saiu para entrega', 'Em trânsito'])
+      .eq('organization_id', organization?.id)
+
+    if (isDelivery) {
+      if (driverId) {
+        ordersQuery = ordersQuery.eq('delivery_person_id', driverId)
+      } else {
+        ordersQuery = ordersQuery.eq('delivery_person_id', '00000000-0000-0000-0000-000000000000')
+      }
+    }
+
     // Fetch Organization Location and Logistics Settings
     const [{ data: logisticsData }, { data: orgData }, { data: ordersData }] = await Promise.all([
       supabase
@@ -564,11 +593,7 @@ export default function DeliveriesMap() {
         .eq('organization_id', organization?.id)
         .maybeSingle(),
       supabase.from('organizations').select('lat, lng').eq('id', organization?.id).single(),
-      supabase
-        .from('orders')
-        .select('*, customers(name, address, lat, lng)')
-        .in('status', ['Pronto p/ entrega', 'Saiu para entrega'])
-        .eq('organization_id', organization?.id),
+      ordersQuery,
     ])
 
     if (logisticsData?.store_lat && logisticsData?.store_lng) {

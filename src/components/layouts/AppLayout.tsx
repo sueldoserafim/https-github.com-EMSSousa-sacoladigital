@@ -102,7 +102,10 @@ export function AppLayout() {
     { name: 'Minha Consignação', href: '/consignments', icon: Archive },
   ]
 
-  const deliveryNavItems = [{ name: 'Minhas Entregas', href: '/tracking/delivery', icon: Truck }]
+  const deliveryNavItems = [
+    { name: 'Minhas Entregas', href: '/tracking/delivery', icon: Truck },
+    { name: 'Mapa de Entregas', href: '/deliveries-map', icon: Map },
+  ]
 
   const navItems = isDelivery ? deliveryNavItems : isSeller ? sellerNavItems : adminNavItems
 
