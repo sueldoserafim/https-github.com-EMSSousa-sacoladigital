@@ -497,7 +497,6 @@ export default function DeliveriesMap() {
   const [storeLocation, setStoreLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [routePoints, setRoutePoints] = useState<{ lat: number; lng: number }[]>([])
-  const [isRouting, setIsRouting] = useState(false)
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null)
   const [trackingData, setTrackingData] = useState<
     Record<string, { points: { lat: number; lng: number }[]; distance: number }>
@@ -636,6 +635,17 @@ export default function DeliveriesMap() {
       }))
       setOrders(mappedOrders)
 
+      if (isDelivery) {
+        setActiveOrderId((current) => {
+          if (!current && mappedOrders.length > 0) return mappedOrders[0].id
+          if (current && !mappedOrders.find((o) => o.id === current) && mappedOrders.length > 0)
+            return mappedOrders[0].id
+          if (current && !mappedOrders.find((o) => o.id === current) && mappedOrders.length === 0)
+            return null
+          return current
+        })
+      }
+
       const orderIds = mappedOrders.map((o) => o.id)
       if (orderIds.length > 0) {
         const { data: trackingHistory } = await supabase
@@ -677,75 +687,26 @@ export default function DeliveriesMap() {
     setLoading(false)
   }
 
-  const handleSuggestRoute = async () => {
-    const withCoords = orders.filter((o) => o.lat != null && o.lng != null)
-
-    if (!storeLocation || withCoords.length === 0) return
-
-    setIsRouting(true)
-
-    // Group locations that are effectively the same to avoid routing loops and save waypoints
-    const uniqueLocationsMap = new Map<string, { lat: number; lng: number }>()
-    withCoords.forEach((o) => {
-      const key = `${Number(o.lat).toFixed(6)},${Number(o.lng).toFixed(6)}`
-      if (!uniqueLocationsMap.has(key)) {
-        uniqueLocationsMap.set(key, { lat: o.lat, lng: o.lng })
-      }
-    })
-
-    const unvisited = Array.from(uniqueLocationsMap.values())
-    const route = []
-    let currentPos = storeLocation
-
-    while (unvisited.length > 0) {
-      let nearestIdx = 0
-      let minDist = Infinity
-      for (let i = 0; i < unvisited.length; i++) {
-        const d = getDistanceFromLatLonInKm(
-          currentPos.lat,
-          currentPos.lng,
-          unvisited[i].lat,
-          unvisited[i].lng,
-        )
-        if (d < minDist) {
-          minDist = d
-          nearestIdx = i
-        }
-      }
-      route.push(unvisited[nearestIdx])
-      currentPos = unvisited[nearestIdx]
-      unvisited.splice(nearestIdx, 1)
-    }
-
-    const waypoints = route.map((loc) => ({ lat: loc.lat, lng: loc.lng }))
-
-    try {
-      const osrmPoints = await getOptimizedRoute(storeLocation, waypoints)
-      if (osrmPoints.length > 0) {
-        setRoutePoints(osrmPoints)
+  useEffect(() => {
+    const isDelivery = profile?.role === 'driver' || profile?.role === 'delivery'
+    if (isDelivery && activeOrderId) {
+      const order = orders.find((o) => o.id === activeOrderId)
+      if (order && order.lat && order.lng && storeLocation) {
+        getOptimizedRoute(storeLocation, [{ lat: order.lat, lng: order.lng }])
+          .then((points) => {
+            if (points.length > 0) setRoutePoints(points)
+            else setRoutePoints([storeLocation, { lat: order.lat, lng: order.lng }])
+          })
+          .catch(() => {
+            setRoutePoints([storeLocation, { lat: order.lat, lng: order.lng }])
+          })
       } else {
-        setRoutePoints([storeLocation, ...waypoints, storeLocation])
+        setRoutePoints([])
       }
-    } catch (error: any) {
-      if (error.message === 'RATE_LIMIT') {
-        toast({
-          title: 'Aviso',
-          description: 'Serviço de rotas temporariamente indisponível devido à alta demanda.',
-          variant: 'destructive',
-        })
-      } else {
-        toast({
-          title: 'Aviso',
-          description:
-            'Não foi possível traçar a rota com precisão nas vias. Exibindo linha direta.',
-          variant: 'destructive',
-        })
-      }
-      setRoutePoints([storeLocation, ...waypoints, storeLocation])
-    } finally {
-      setIsRouting(false)
+    } else {
+      setRoutePoints([])
     }
-  }
+  }, [activeOrderId, orders, storeLocation, profile])
 
   let centerLat = -23.5505
   let centerLng = -46.6333
@@ -815,11 +776,10 @@ export default function DeliveriesMap() {
         <div className="w-full md:w-[400px] flex-shrink-0 h-[400px] md:h-auto border-t md:border-t-0 md:border-l z-10 bg-background shadow-lg">
           <DeliveriesPanel
             orders={orders}
-            onCalculateRoute={handleSuggestRoute}
             onOrderClick={setActiveOrderId}
             activeOrderId={activeOrderId}
-            isRouting={isRouting}
             storeLocation={storeLocation}
+            onStatusChange={loadData}
           />
         </div>
       </div>
