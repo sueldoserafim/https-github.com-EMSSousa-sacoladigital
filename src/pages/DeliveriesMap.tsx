@@ -462,9 +462,23 @@ function InteractiveMap({
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2" title={o.address}>
                     {o.address}
                   </p>
-                  <div className="mt-2 font-semibold text-primary">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                      o.total || 0,
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="font-semibold text-primary">
+                      {new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                      }).format(o.total || 0)}
+                    </span>
+                    {o.customers?.phone && (
+                      <a
+                        href={`https://wa.me/${o.customers.phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-[#25D366] hover:bg-[#128C7E] text-white text-[10px] px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        WhatsApp
+                      </a>
                     )}
                   </div>
                 </div>
@@ -488,6 +502,7 @@ export default function DeliveriesMap() {
   const [trackingData, setTrackingData] = useState<
     Record<string, { points: { lat: number; lng: number }[]; distance: number }>
   >({})
+  const [accessDenied, setAccessDenied] = useState(false)
   const { toast } = useToast()
 
   const getDistanceFromLatLonInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -504,7 +519,7 @@ export default function DeliveriesMap() {
   }
 
   useEffect(() => {
-    if (organization) {
+    if (organization && profile) {
       loadData()
 
       const channel = supabase
@@ -552,7 +567,7 @@ export default function DeliveriesMap() {
         supabase.removeChannel(channel)
       }
     }
-  }, [organization])
+  }, [organization, profile])
 
   const loadData = async () => {
     setLoading(true)
@@ -573,7 +588,7 @@ export default function DeliveriesMap() {
 
     let ordersQuery = supabase
       .from('orders')
-      .select('*, customers(name, address, lat, lng)')
+      .select('*, customers(name, address, phone, lat, lng)')
       .in('status', ['Pronto p/ entrega', 'Saiu para entrega', 'Em trânsito'])
       .eq('organization_id', organization?.id)
 
@@ -581,7 +596,9 @@ export default function DeliveriesMap() {
       if (driverId) {
         ordersQuery = ordersQuery.eq('delivery_person_id', driverId)
       } else {
-        ordersQuery = ordersQuery.eq('delivery_person_id', '00000000-0000-0000-0000-000000000000')
+        setAccessDenied(true)
+        setLoading(false)
+        return
       }
     }
 
@@ -744,6 +761,22 @@ export default function DeliveriesMap() {
     }
   }
 
+  if (accessDenied) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center">
+        <div className="text-center space-y-4 max-w-sm px-4">
+          <div className="bg-destructive/10 text-destructive w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+            <Store className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-bold">Acesso Negado</h2>
+          <p className="text-muted-foreground">
+            Você não está vinculado a um perfil de entregador ativo para acessar o mapa.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="h-[calc(100vh-theme(spacing.24))] flex flex-col -mx-4 -mt-6 sm:mx-0 sm:mt-0">
       <div className="hidden sm:block mb-6">
@@ -769,6 +802,13 @@ export default function DeliveriesMap() {
               onOrderClick={setActiveOrderId}
               trackingData={trackingData}
             />
+          )}
+          {!loading && orders.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-20 backdrop-blur-sm">
+              <p className="text-muted-foreground text-lg font-medium text-center px-4">
+                Nenhuma entrega pendente encontrada.
+              </p>
+            </div>
           )}
         </div>
 
