@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Pencil, Trash2, Plus, Loader2 } from 'lucide-react'
+import { Pencil, Trash2, Plus, Loader2, Copy } from 'lucide-react'
 
 const PAGE_SIZE = 20
 
@@ -38,12 +38,16 @@ export default function Drivers() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: '',
     phone: '',
     vehicle_info: '',
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [credentialsModal, setCredentialsModal] = useState<{
+    open: boolean
+    email: string
+    password: string
+  }>({ open: false, email: '', password: '' })
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
@@ -74,13 +78,32 @@ export default function Drivers() {
     setLoading(false)
   }
 
+  const generatePassword = () => {
+    const u = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    const l = 'abcdefghijklmnopqrstuvwxyz'
+    const n = '0123456789'
+    const s = '!@#$%^&*'
+    const all = u + l + n + s
+    return (
+      u[Math.floor(Math.random() * u.length)] +
+      l[Math.floor(Math.random() * l.length)] +
+      n[Math.floor(Math.random() * n.length)] +
+      s[Math.floor(Math.random() * s.length)] +
+      Array.from({ length: 8 })
+        .map(() => all[Math.floor(Math.random() * all.length)])
+        .join('')
+    )
+      .split('')
+      .sort(() => 0.5 - Math.random())
+      .join('')
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
       if (editingId) {
-        // Update existing driver
         const { error } = await supabase
           .from('drivers')
           .update({
@@ -92,16 +115,19 @@ export default function Drivers() {
 
         if (error) throw error
         toast({ title: 'Sucesso', description: 'Entregador atualizado.' })
+        setModalOpen(false)
+        fetchDrivers()
       } else {
-        // Create new auth user and profile
-        if (!formData.email || !formData.password) {
-          throw new Error('Email e senha são obrigatórios para novo entregador')
+        if (!formData.email) {
+          throw new Error('Email é obrigatório para novo entregador')
         }
+
+        const password = generatePassword()
 
         const { data: fnData, error: fnError } = await supabase.functions.invoke('create-user', {
           body: {
             email: formData.email,
-            password: formData.password,
+            password: password,
             full_name: formData.name,
             role: 'driver',
             organization_id: organization!.id,
@@ -113,7 +139,6 @@ export default function Drivers() {
 
         const userId = fnData.user.id
 
-        // Create driver record
         const { error: driverError } = await supabase.from('drivers').insert([
           {
             organization_id: organization!.id,
@@ -127,10 +152,16 @@ export default function Drivers() {
 
         if (driverError) throw driverError
         toast({ title: 'Sucesso', description: 'Entregador cadastrado com acesso ao sistema.' })
-      }
 
-      setModalOpen(false)
-      fetchDrivers()
+        setModalOpen(false)
+        fetchDrivers()
+
+        setCredentialsModal({
+          open: true,
+          email: formData.email,
+          password: password,
+        })
+      }
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' })
     } finally {
@@ -151,7 +182,7 @@ export default function Drivers() {
 
   const openNewModal = () => {
     setEditingId(null)
-    setFormData({ name: '', email: '', password: '', phone: '', vehicle_info: '' })
+    setFormData({ name: '', email: '', phone: '', vehicle_info: '' })
     setModalOpen(true)
   }
 
@@ -159,8 +190,7 @@ export default function Drivers() {
     setEditingId(driver.id)
     setFormData({
       name: driver.name,
-      email: '', // email not editable here anyway
-      password: '',
+      email: '',
       phone: driver.phone || '',
       vehicle_info: driver.vehicle_info || '',
     })
@@ -282,28 +312,19 @@ export default function Drivers() {
             </div>
 
             {!editingId && (
-              <>
-                <div className="space-y-2">
-                  <Label>Email (para login)</Label>
-                  <Input
-                    type="email"
-                    required
-                    placeholder="joao@exemplo.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Senha Temporária</Label>
-                  <Input
-                    type="password"
-                    required
-                    placeholder="Mínimo 6 caracteres"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  />
-                </div>
-              </>
+              <div className="space-y-2">
+                <Label>Email (para login)</Label>
+                <Input
+                  type="email"
+                  required
+                  placeholder="joao@exemplo.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  A senha será gerada automaticamente e exibida após a criação.
+                </p>
+              </div>
             )}
 
             <div className="space-y-2">
@@ -329,10 +350,65 @@ export default function Drivers() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar'}
+                {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Salvar
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={credentialsModal.open}
+        onOpenChange={(open) =>
+          !open && setCredentialsModal({ open: false, email: '', password: '' })
+        }
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Usuário criado com sucesso!</DialogTitle>
+            <DialogDescription>
+              Acesso gerado. Copie e envie para o entregador. A senha não será exibida novamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-1">
+              <Label>Email</Label>
+              <div className="p-3 bg-muted rounded-md font-mono text-sm">
+                {credentialsModal.email}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Senha Temporária</Label>
+              <div className="p-3 bg-muted rounded-md font-mono text-sm">
+                {credentialsModal.password}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCredentialsModal({ open: false, email: '', password: '' })}
+            >
+              Fechar
+            </Button>
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(
+                  `Acesso ao Aplicativo\nEmail: ${credentialsModal.email}\nSenha: ${credentialsModal.password}`,
+                )
+                toast({
+                  title: 'Copiado',
+                  description: 'Credenciais copiadas para área de transferência.',
+                })
+              }}
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              Copiar Credenciais
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
