@@ -32,7 +32,7 @@ export function ProtectedRoute({ allowedRoles = [] }: { allowedRoles?: string[] 
         if (!sellerAllowed.some((path) => location.pathname.startsWith(path))) {
           return <Navigate to="/seller/dashboard" replace />
         }
-      } else if (role === 'delivery') {
+      } else if (role === 'driver' || role === 'delivery') {
         return <Navigate to="/tracking/delivery" replace />
       } else {
         return <Navigate to="/dashboard" replace />
@@ -44,7 +44,7 @@ export function ProtectedRoute({ allowedRoles = [] }: { allowedRoles?: string[] 
       if (!sellerAllowed.some((path) => location.pathname.startsWith(path))) {
         return <Navigate to="/seller/dashboard" replace />
       }
-    } else if (role === 'delivery') {
+    } else if (role === 'driver' || role === 'delivery') {
       const deliveryAllowed = ['/tracking/delivery']
       if (!deliveryAllowed.some((path) => location.pathname.startsWith(path))) {
         return <Navigate to="/tracking/delivery" replace />

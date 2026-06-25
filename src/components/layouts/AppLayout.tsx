@@ -69,6 +69,7 @@ export function AppLayout() {
   }
 
   const isSeller = profile?.role === 'seller'
+  const isDelivery = profile?.role === 'driver' || profile?.role === 'delivery'
 
   const adminNavItems = [
     { name: 'Painel', href: '/dashboard', icon: LayoutDashboard },
@@ -81,6 +82,7 @@ export function AppLayout() {
     { name: 'Vendedoras', href: '/sellers', icon: BadgeDollarSign },
     { name: 'Ranking de Vendas', href: '/admin/sellers/performance', icon: TrendingUp },
     { name: 'Consignação', href: '/consignments', icon: Archive },
+    { name: 'Entregadores', href: '/drivers', icon: Truck },
     { name: 'Mapa de Entregas', href: '/deliveries-map', icon: Map },
     { name: 'Histórico de Rotas', href: '/route-history', icon: History },
     { name: 'Compra Coletiva', href: '/group-buying', icon: Users },
@@ -100,7 +102,9 @@ export function AppLayout() {
     { name: 'Minha Consignação', href: '/consignments', icon: Archive },
   ]
 
-  const navItems = isSeller ? sellerNavItems : adminNavItems
+  const deliveryNavItems = [{ name: 'Minhas Entregas', href: '/tracking/delivery', icon: Truck }]
+
+  const navItems = isDelivery ? deliveryNavItems : isSeller ? sellerNavItems : adminNavItems
 
   const getInitials = (name: string) => (name ? name.charAt(0).toUpperCase() : 'U')
 

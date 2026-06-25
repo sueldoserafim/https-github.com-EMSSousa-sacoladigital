@@ -87,7 +87,11 @@ const App = () => (
 
             {/* Authenticated App Routes */}
             <Route
-              element={<ProtectedRoute allowedRoles={['admin', 'member', 'seller', 'delivery']} />}
+              element={
+                <ProtectedRoute
+                  allowedRoles={['admin', 'member', 'seller', 'delivery', 'driver']}
+                />
+              }
             >
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />

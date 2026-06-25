@@ -2,255 +2,167 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { MapPin, Package, Phone, CheckCircle2, ChevronRight } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { MapPin, Phone, User, Package, Loader2, CheckCircle2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
 
 export default function DeliveryTracking() {
   const { user } = useAuth()
-  const { toast } = useToast()
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [driver, setDriver] = useState<any>(null)
-
-  const [selectedOrder, setSelectedOrder] = useState<any>(null)
-  const [updating, setUpdating] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
-    if (user?.id) {
-      fetchDriverInfo()
+    if (user) {
+      fetchMyOrders()
     }
-  }, [user?.id])
+  }, [user])
 
-  const fetchDriverInfo = async () => {
-    const { data: driverData } = await supabase
+  const fetchMyOrders = async () => {
+    setLoading(true)
+
+    const { data: driverData, error: driverError } = await supabase
       .from('drivers')
-      .select('*')
+      .select('id')
       .eq('user_id', user!.id)
       .single()
 
-    if (driverData) {
-      setDriver(driverData)
-      fetchDeliveries(driverData.id)
-    } else {
+    if (driverError || !driverData) {
       setLoading(false)
+      return
     }
-  }
 
-  const fetchDeliveries = async (driverId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('orders')
-      .select('*, customers(name, phone)')
-      .eq('delivery_person_id', driverId)
-      .in('status', ['Em preparação', 'Pronto p/ entrega', 'Entregue'])
+      .select(`
+        *,
+        customers (name, phone, address)
+      `)
+      .eq('delivery_person_id', driverData.id)
+      .in('status', ['Em Rota de Entrega', 'Pronto para Entrega', 'Pendente', 'Novo'])
       .order('created_at', { ascending: false })
 
-    if (data) {
+    if (!error && data) {
       setOrders(data)
     }
     setLoading(false)
   }
 
-  const handleCompleteDelivery = async (orderId: string) => {
-    setUpdating(true)
-    const { error } = await supabase.from('orders').update({ status: 'Entregue' }).eq('id', orderId)
+  const markAsDelivered = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'Entregue' })
+        .eq('id', orderId)
 
-    setUpdating(false)
-    if (error) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' })
-    } else {
-      toast({ title: 'Sucesso', description: 'Entrega confirmada com sucesso!' })
-      setSelectedOrder(null)
-      if (driver) fetchDeliveries(driver.id)
+      if (error) throw error
+
+      toast({ title: 'Sucesso', description: 'Pedido marcado como entregue!' })
+      fetchMyOrders()
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
     }
   }
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
-
-  if (!driver) {
-    return (
-      <div className="p-6 max-w-3xl mx-auto text-center mt-10">
-        <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-        <h2 className="text-xl font-bold">Acesso Negado</h2>
-        <p className="text-muted-foreground mt-2">
-          Você não está vinculado a um perfil de entregador ativo.
-        </p>
-      </div>
-    )
-  }
-
-  const pendingDeliveries = orders.filter((o) => o.status !== 'Entregue')
-  const completedDeliveries = orders.filter((o) => o.status === 'Entregue')
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8 pb-20 animate-fade-in-up">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Minhas Entregas</h1>
-        <p className="text-muted-foreground">Bem-vindo, {driver.name}</p>
-      </div>
-
-      <div className="grid gap-6">
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in-up py-4">
+      <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Package className="w-5 h-5 text-blue-500" />
-            Entregas Pendentes ({pendingDeliveries.length})
-          </h2>
-          {pendingDeliveries.length === 0 ? (
-            <p className="text-muted-foreground text-sm bg-accent/50 p-6 rounded-lg text-center border border-dashed">
-              Nenhuma entrega pendente no momento.
-            </p>
-          ) : (
-            <div className="grid gap-4">
-              {pendingDeliveries.map((order) => (
-                <Card
-                  key={order.id}
-                  className="cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => setSelectedOrder(order)}
-                >
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline">{order.order_number}</Badge>
-                        <Badge
-                          variant="secondary"
-                          className={
-                            order.status === 'Pronto p/ entrega'
-                              ? 'bg-amber-100 text-amber-800'
-                              : ''
-                          }
-                        >
-                          {order.status}
-                        </Badge>
-                      </div>
-                      <p className="font-semibold text-base">{order.customers?.name}</p>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1 truncate max-w-[250px] md:max-w-md">
-                        <MapPin className="w-3 h-3 shrink-0" />
-                        {order.delivery_address || 'Endereço não informado'}
-                      </p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          <h1 className="text-2xl font-bold tracking-tight">Minhas Entregas</h1>
+          <p className="text-muted-foreground">Gerencie os pedidos atribuídos a você.</p>
         </div>
-
-        {completedDeliveries.length > 0 && (
-          <div className="opacity-75">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-              Entregues Recentemente
-            </h2>
-            <div className="grid gap-3">
-              {completedDeliveries.slice(0, 5).map((order) => (
-                <Card key={order.id} className="bg-accent/30 border-dashed">
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="opacity-70">
-                          {order.order_number}
-                        </Badge>
-                      </div>
-                      <p className="font-medium text-sm text-muted-foreground line-through">
-                        {order.customers?.name}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      {selectedOrder && (
-        <Dialog open={!!selectedOrder} onOpenChange={(o) => !o && setSelectedOrder(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Detalhes da Entrega</DialogTitle>
-              <DialogDescription>Pedido {selectedOrder.order_number}</DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6 my-4">
-              <div className="p-4 bg-accent/50 rounded-lg border">
-                <h3 className="font-semibold text-sm mb-1 text-muted-foreground uppercase tracking-wider">
-                  Cliente
-                </h3>
-                <p className="font-medium text-lg">{selectedOrder.customers?.name}</p>
-                {selectedOrder.customers?.phone && (
-                  <a
-                    href={`https://wa.me/${selectedOrder.customers.phone.replace(/\D/g, '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center text-primary mt-2 hover:underline font-medium"
-                  >
-                    <Phone className="w-4 h-4 mr-2" />
-                    {selectedOrder.customers.phone}
-                  </a>
-                )}
+      {orders.length === 0 ? (
+        <Card className="bg-accent/40 border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <Package className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+            <h3 className="text-lg font-medium text-foreground">Nenhuma entrega pendente</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Você não tem pedidos pendentes atribuídos no momento.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {orders.map((order) => (
+            <Card key={order.id} className="overflow-hidden">
+              <div className="bg-accent/40 px-4 py-3 border-b flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Pedido #{order.order_number}</span>
+                  <Badge variant="outline" className="bg-white">
+                    {order.status}
+                  </Badge>
+                </div>
+                <span className="text-sm font-medium">
+                  {order.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </span>
               </div>
+              <CardContent className="p-4 flex flex-col sm:flex-row gap-6">
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <User className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">
+                        {order.customers?.name || 'Cliente sem nome'}
+                      </p>
+                    </div>
+                  </div>
 
-              <div>
-                <h3 className="font-semibold text-sm mb-2 text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                  <MapPin className="w-4 h-4" /> Endereço de Entrega
-                </h3>
-                <p className="text-base">
-                  {selectedOrder.delivery_address || 'Endereço não cadastrado.'}
-                </p>
-                {selectedOrder.delivery_address && (
-                  <Button
-                    variant="outline"
-                    className="w-full mt-3"
-                    onClick={() => {
-                      window.open(
-                        `https://maps.google.com/?q=${encodeURIComponent(selectedOrder.delivery_address)}`,
-                        '_blank',
-                      )
-                    }}
-                  >
-                    Abrir no Maps
-                  </Button>
-                )}
-              </div>
+                  <div className="flex items-start gap-3">
+                    <Phone className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm">
+                        {order.customers?.phone || 'Telefone não informado'}
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="pt-4 border-t">
-                {selectedOrder.status !== 'Entregue' ? (
+                  <div className="flex items-start gap-3">
+                    <MapPin className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm">
+                        {order.delivery_address ||
+                          order.customers?.address ||
+                          'Endereço não informado'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex sm:flex-col justify-end gap-2 shrink-0">
+                  {order.customers?.phone && (
+                    <Button variant="outline" className="flex-1" asChild>
+                      <a
+                        href={`https://wa.me/55${order.customers.phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        WhatsApp
+                      </a>
+                    </Button>
+                  )}
                   <Button
-                    className="w-full h-12 text-base font-semibold bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => handleCompleteDelivery(selectedOrder.id)}
-                    disabled={updating}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => markAsDelivered(order.id)}
                   >
-                    {updating ? 'Confirmando...' : 'Confirmar Entrega'}
-                    {!updating && <CheckCircle2 className="w-5 h-5 ml-2" />}
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Confirmar Entrega
                   </Button>
-                ) : (
-                  <Button
-                    className="w-full h-12 text-base font-semibold"
-                    variant="secondary"
-                    disabled
-                  >
-                    Entrega Concluída
-                  </Button>
-                )}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   )

@@ -103,7 +103,7 @@ export default function Drivers() {
             email: formData.email,
             password: formData.password,
             full_name: formData.name,
-            role: 'delivery',
+            role: 'driver',
             organization_id: organization!.id,
           },
         })
