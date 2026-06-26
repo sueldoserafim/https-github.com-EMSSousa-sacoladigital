@@ -18,20 +18,34 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const body = await req.json()
-    const { email, password, full_name, role, organization_id, entity_data, slug, commission_rate } = body
+    const {
+      email,
+      password,
+      full_name,
+      role,
+      organization_id,
+      entity_data,
+      slug,
+      commission_rate,
+    } = body
 
     if (!email || !password || !organization_id) {
       throw new Error('Email, senha e organization_id são obrigatórios.')
     }
 
-    let finalEntityData = entity_data || null;
+    let finalEntityData = entity_data || {}
 
     if (role === 'seller') {
       finalEntityData = {
-        ...(finalEntityData || {}),
-        slug: slug || entity_data?.slug,
-        commission_rate: commission_rate !== undefined ? commission_rate : entity_data?.commission_rate
-      };
+        ...finalEntityData,
+        slug: slug || finalEntityData.slug,
+        commission_rate:
+          commission_rate !== undefined ? commission_rate : finalEntityData.commission_rate,
+      }
+    }
+
+    if (Object.keys(finalEntityData).length === 0) {
+      finalEntityData = null
     }
 
     // Use the RPC to create the user and related entities atomically
