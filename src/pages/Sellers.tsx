@@ -145,11 +145,15 @@ export default function Sellers() {
           },
         })
 
-        if (fnError)
-          throw new Error(
-            `Falha na comunicação com o servidor: ${fnError.message || JSON.stringify(fnError)}`,
-          )
-        if (fnData?.error) throw new Error(fnData.error)
+        if (fnError) {
+          const apiError = (fnError as any).error
+          const msg = apiError?.message || fnError.message || 'Erro ao criar vendedora no servidor.'
+          throw new Error(msg)
+        }
+
+        if (fnData?.error) {
+          throw new Error(fnData.error)
+        }
 
         setModalOpen(false)
         fetchSellers()
