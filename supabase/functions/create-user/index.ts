@@ -46,12 +46,14 @@ Deno.serve(async (req: Request) => {
       if (
         rpcError.message.includes('identificador (slug) já está em uso') ||
         rpcError.message.includes('sellers_slug_key') ||
-        rpcError.message.includes('sellers_organization_id_slug_key') ||
-        rpcError.code === '23505'
+        rpcError.message.includes('sellers_organization_id_slug_key')
       ) {
         throw new Error(
           'O identificador (slug) já está em uso por outra vendedora. Escolha um diferente.',
         )
+      }
+      if (rpcError.code === '23505' || rpcError.message.includes('unique constraint')) {
+        throw new Error('Já existe um registro com estes dados (conflito de unicidade).')
       }
       throw new Error(`Erro ao criar usuário: ${rpcError.message}`)
     }

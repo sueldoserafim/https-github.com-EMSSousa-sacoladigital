@@ -166,6 +166,8 @@ export default function Sellers() {
           throw new Error(fnData.error)
         }
 
+        toast({ title: 'Sucesso', description: 'Vendedora criada com sucesso.' })
+
         setModalOpen(false)
         fetchSellers()
 
