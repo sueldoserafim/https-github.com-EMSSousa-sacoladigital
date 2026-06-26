@@ -1,6 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { corsHeaders } from './cors.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -18,10 +18,30 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const body = await req.json()
-    const { email, password, full_name, role, organization_id, entity_data } = body
+    const {
+      email,
+      password,
+      full_name,
+      role,
+      organization_id,
+      entity_data,
+      slug,
+      commission_rate,
+    } = body
 
     if (!email || !password || !organization_id) {
       throw new Error('Email, senha e organization_id são obrigatórios.')
+    }
+
+    let finalEntityData = entity_data || null
+
+    if (role === 'seller') {
+      finalEntityData = {
+        ...(finalEntityData || {}),
+        slug: slug || entity_data?.slug,
+        commission_rate:
+          commission_rate !== undefined ? commission_rate : entity_data?.commission_rate,
+      }
     }
 
     // Use the RPC to create the user and related entities atomically
@@ -33,7 +53,7 @@ Deno.serve(async (req: Request) => {
       p_role: role || 'member',
       p_organization_id: organization_id,
       p_phone: null,
-      p_entity_data: entity_data || null,
+      p_entity_data: finalEntityData,
     })
 
     if (rpcError) {
