@@ -138,24 +138,18 @@ export default function Sellers() {
             full_name: formData.name,
             role: 'seller',
             organization_id: organization!.id,
+            entity_data: {
+              slug: slug,
+              commission_rate: formData.commission_rate,
+            },
           },
         })
 
-        if (fnError) throw fnError
+        if (fnError)
+          throw new Error(
+            `Falha na comunicação com o servidor: ${fnError.message || JSON.stringify(fnError)}`,
+          )
         if (fnData?.error) throw new Error(fnData.error)
-
-        const userId = fnData.user.id
-
-        const payload = {
-          name: formData.name,
-          slug: slug,
-          organization_id: organization!.id,
-          commission_rate: formData.commission_rate,
-          user_id: userId,
-        }
-
-        const { error } = await supabase.from('sellers' as any).insert([payload])
-        if (error) throw error
 
         setModalOpen(false)
         fetchSellers()
@@ -167,7 +161,8 @@ export default function Sellers() {
         })
       }
     } catch (err: any) {
-      toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' })
+      const msg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err))
+      toast({ title: 'Erro ao salvar', description: msg, variant: 'destructive' })
     } finally {
       setIsSubmitting(false)
     }
