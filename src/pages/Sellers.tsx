@@ -146,8 +146,19 @@ export default function Sellers() {
         })
 
         if (fnError) {
-          const apiError = (fnError as any).error
-          const msg = apiError?.message || fnError.message || 'Erro ao criar vendedora no servidor.'
+          let msg = fnError.message || 'Erro ao criar vendedora no servidor.'
+          if ('context' in fnError) {
+            try {
+              const res = (fnError as any).context as Response
+              const json = await res.clone().json()
+              if (json?.message) msg = json.message
+            } catch {
+              /* intentionally ignored */
+            }
+          } else {
+            const apiError = (fnError as any).error
+            if (apiError?.message) msg = apiError.message
+          }
           throw new Error(msg)
         }
 
