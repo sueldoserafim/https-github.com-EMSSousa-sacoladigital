@@ -139,7 +139,7 @@ export default function Sellers() {
             role: 'seller',
             organization_id: organization!.id,
             entity_data: {
-              slug: slug,
+              //slug: slug,
               commission_rate: formData.commission_rate,
             },
           },
