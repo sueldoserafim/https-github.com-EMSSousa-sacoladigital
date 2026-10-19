@@ -224,43 +224,17 @@ export default function Catalog() {
           ÁREA DE TELA NORMAL (OCULTA AUTOMATICAMENTE AO IMPRIMIR)
           ======================================================== */}
       <div className="catalog-screen-only max-w-6xl mx-auto py-8 animate-fade-in-up">
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-              Criador de Catálogo
-              <span className="text-xs bg-pink-100 text-[#be185d] font-bold px-2 py-0.5 rounded-full border border-pink-200">
-                A4 Alta Resolução
-              </span>
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Configure produtos e gere o catálogo em PDF perfeito via impressão nativa do navegador
-              (sem distorções e sem cortes).
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setPreviewOpen(true)}
-              disabled={loading || selectedProducts.size === 0}
-              className="gap-2 font-semibold"
-            >
-              <Eye className="w-4 h-4 text-[#be185d]" />
-              Pré-visualizar A4
-            </Button>
-            <Button
-              onClick={() => handlePrint(false)}
-              disabled={printing || loading || selectedProducts.size === 0}
-              className="gap-2 bg-[#be185d] hover:bg-[#a2134e] text-white font-bold shadow-md"
-            >
-              {printing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Printer className="w-4 h-4" />
-              )}
-              Imprimir / Salvar PDF
-            </Button>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            Criador de Catálogo
+            <span className="text-xs bg-pink-100 text-[#be185d] font-bold px-2 py-0.5 rounded-full border border-pink-200">
+              A4 Alta Resolução
+            </span>
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Configure produtos e gere o catálogo em PDF perfeito via impressão nativa do navegador
+            (sem distorções e sem cortes).
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

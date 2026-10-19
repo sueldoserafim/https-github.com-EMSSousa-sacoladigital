@@ -1,11 +1,11 @@
 {
   "_versions": {
-    "generate-skus": 12,
-    "invite-user": 14,
-    "notify-preorder-ready": 12,
+    "generate-skus": 13,
+    "invite-user": 15,
+    "notify-preorder-ready": 13,
     "segment-customers": 5,
     "notify-back-in-stock": 5,
-    "send-marketing-campaign": 12,
+    "send-marketing-campaign": 13,
     "create-user": 16
   }
 }
