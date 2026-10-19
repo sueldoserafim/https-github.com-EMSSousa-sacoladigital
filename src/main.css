@@ -73,3 +73,86 @@
     }
   }
 }
+
+@page {
+  size: A4 portrait;
+  margin: 10mm 10mm 12mm 10mm;
+}
+
+@media print {
+  /* Force exact background colors and graphics rendering */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Reset body and html layout */
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    font-size: 12pt;
+  }
+
+  /* Hide all app UI: sidebars, navbars, headers, dialogs, toasts */
+  header,
+  aside,
+  nav,
+  [role='dialog']:not(.print-include),
+  .no-print {
+    display: none !important;
+  }
+
+  /* Hide all main content except the dedicated print container */
+  body > #root {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Ensure app wrapper does not clip overflow */
+  .h-screen,
+  .overflow-hidden,
+  .overflow-y-auto {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Print catalog layout rules */
+  .catalog-print-only {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .catalog-screen-only {
+    display: none !important;
+  }
+
+  .catalog-page-header {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .catalog-card-item {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .catalog-page-footer {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
