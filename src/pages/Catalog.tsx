@@ -103,68 +103,80 @@ export default function Catalog() {
     })
   }
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (downloadDirectly: boolean = false) => {
     if (selectedProducts.size === 0) {
       toast.error('Selecione pelo menos um produto.')
       return
     }
 
     setGenerating(true)
-    const toastId = toast.loading('Gerando PDF...', { duration: 100000 })
+    const toastId = toast.loading('Gerando PDF profissional...', { duration: 100000 })
+
+    let renderWrapper: HTMLDivElement | null = null
 
     try {
       await loadHtml2Pdf()
 
-      // Small delay to ensure the hidden DOM is fully updated with selected products
-      await new Promise((r) => setTimeout(r, 1000))
+      // Small delay to ensure the template DOM has latest state
+      await new Promise((r) => setTimeout(r, 600))
 
-      const element = document.getElementById('hidden-catalog-content')
-      if (!element) throw new Error('Elemento do catálogo não encontrado')
+      const sourceElement = document.getElementById('hidden-catalog-content')
+      if (!sourceElement) throw new Error('Elemento do catálogo não encontrado')
 
-      const pdfBlob = await (window as any)
-        .html2pdf()
-        .from(element)
-        .set({
-          margin: [0, 0, 0, 0],
-          filename: `catalog_${Date.now()}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            logging: false,
-            width: 794,
-            windowWidth: 794,
-            letterRendering: true,
-            scrollX: 0,
-            scrollY: 0,
-            onclone: (clonedDoc: Document) => {
-              clonedDoc.documentElement.style.margin = '0'
-              clonedDoc.documentElement.style.padding = '0'
-              clonedDoc.documentElement.style.width = '794px'
-              clonedDoc.body.style.margin = '0'
-              clonedDoc.body.style.padding = '0'
-              clonedDoc.body.style.width = '794px'
+      // Create a temporary sandbox container in the viewport, positioned at (0, 0)
+      // behind existing content so html2canvas renders exact coordinates without offset.
+      renderWrapper = document.createElement('div')
+      renderWrapper.id = 'pdf-render-sandbox'
+      renderWrapper.style.position = 'fixed'
+      renderWrapper.style.top = '0'
+      renderWrapper.style.left = '0'
+      renderWrapper.style.width = '794px'
+      renderWrapper.style.minWidth = '794px'
+      renderWrapper.style.maxWidth = '794px'
+      renderWrapper.style.margin = '0'
+      renderWrapper.style.padding = '0'
+      renderWrapper.style.zIndex = '-9999'
+      renderWrapper.style.pointerEvents = 'none'
+      renderWrapper.style.backgroundColor = '#ffffff'
+      renderWrapper.style.overflow = 'visible'
 
-              const el = clonedDoc.getElementById('hidden-catalog-content')
-              if (el && el.parentElement) {
-                el.parentElement.style.position = 'static'
-                el.parentElement.style.top = '0'
-                el.parentElement.style.left = '0'
-                el.parentElement.style.width = '794px'
-                el.parentElement.style.transform = 'none'
-              }
-              if (el) {
-                el.style.width = '794px'
-                el.style.maxWidth = '794px'
-                el.style.boxSizing = 'border-box'
-              }
-            },
-          },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: '.card-wrapper' },
-        })
-        .output('blob')
+      const clone = sourceElement.cloneNode(true) as HTMLElement
+      clone.style.width = '794px'
+      clone.style.minWidth = '794px'
+      clone.style.maxWidth = '794px'
+      clone.style.margin = '0'
+      clone.style.boxSizing = 'border-box'
+      renderWrapper.appendChild(clone)
+      document.body.appendChild(renderWrapper)
+
+      // Let browser compute styles and layouts
+      await new Promise((r) => setTimeout(r, 200))
+
+      const opt = {
+        margin: [0, 0, 0, 0],
+        filename: `catalogo_${Date.now()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          scrollX: 0,
+          scrollY: 0,
+          x: 0,
+          y: 0,
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: '.card-wrapper' },
+      }
+
+      const pdfBlob = await (window as any).html2pdf().from(clone).set(opt).output('blob')
+
+      // Clean up temporary DOM element safely
+      if (renderWrapper && renderWrapper.parentNode) {
+        renderWrapper.parentNode.removeChild(renderWrapper)
+        renderWrapper = null
+      }
 
       toast.loading('Fazendo upload para a nuvem...', { id: toastId })
 
@@ -202,7 +214,17 @@ export default function Catalog() {
       setGeneratedPdf({ url: pdfUrl, historyId: historyData.id })
       fetchHistory()
       toast.success('PDF gerado com sucesso!', { id: toastId })
+      if (downloadDirectly) {
+        const a = document.createElement('a')
+        a.href = pdfUrl
+        a.download = `catalogo.pdf`
+        a.target = '_blank'
+        a.click()
+      }
     } catch (error) {
+      if (renderWrapper && renderWrapper.parentNode) {
+        renderWrapper.parentNode.removeChild(renderWrapper)
+      }
       console.error(error)
       toast.error('Erro ao gerar catálogo', { id: toastId })
     } finally {
@@ -481,42 +503,54 @@ export default function Catalog() {
           <Card className="border-primary/20 bg-primary/5 shadow-sm">
             <CardContent className="pt-6">
               {!generatedPdf ? (
-                <>
+                <div className="space-y-3">
                   <Button
-                    className="w-full h-14 text-lg gap-2 font-bold shadow-lg transition-transform hover:-translate-y-0.5"
-                    onClick={handleGenerate}
+                    className="w-full h-14 text-base gap-2 font-bold shadow-lg transition-transform hover:-translate-y-0.5 bg-[#be185d] hover:bg-[#a2134e] text-white"
+                    onClick={() => handleGenerate(false)}
                     disabled={generating || loading || selectedProducts.size === 0}
                   >
                     {generating ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
-                      <FileDown className="w-6 h-6" />
+                      <FileDown className="w-5 h-5" />
                     )}
-                    {generating ? 'Gerando...' : 'Gerar PDF agora'}
+                    {generating ? 'Gerando Catálogo...' : 'Gerar e Visualizar PDF'}
                   </Button>
-                  <p className="text-xs text-center text-muted-foreground mt-4 leading-relaxed">
-                    O catálogo será gerado como um arquivo PDF profissional e salvo automaticamente.
+
+                  <Button
+                    variant="outline"
+                    className="w-full h-11 text-sm gap-2 font-semibold border-primary/30 hover:bg-primary/10 transition-colors"
+                    onClick={() => handleGenerate(true)}
+                    disabled={generating || loading || selectedProducts.size === 0}
+                  >
+                    <Download className="w-4 h-4 text-[#be185d]" />
+                    Baixar PDF Diretamente
+                  </Button>
+
+                  <p className="text-xs text-center text-muted-foreground pt-1 leading-relaxed">
+                    O catálogo será gerado como arquivo PDF profissional A4 sem cortes e salvo no
+                    seu histórico.
                   </p>
-                </>
+                </div>
               ) : (
                 <div className="space-y-4 animate-fade-in-up">
-                  <div className="flex flex-col items-center justify-center text-green-600 mb-4 gap-2">
+                  <div className="flex flex-col items-center justify-center text-green-600 mb-2 gap-2">
                     <CheckCircle className="w-8 h-8" />
                     <span className="font-bold text-lg text-center leading-tight">
                       Catálogo gerado com sucesso!
                     </span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Button
                       variant="default"
-                      className="flex-1 gap-2"
+                      className="flex-1 gap-2 bg-[#be185d] hover:bg-[#a2134e] text-white font-semibold"
                       onClick={() => setPreviewOpen(true)}
                     >
                       <Eye className="w-4 h-4" /> Visualizar
                     </Button>
                     <Button
                       variant="outline"
-                      className="flex-1 gap-2"
+                      className="flex-1 gap-2 font-semibold border-slate-300"
                       onClick={() => {
                         const a = document.createElement('a')
                         a.href = generatedPdf.url
@@ -525,7 +559,7 @@ export default function Catalog() {
                         a.click()
                       }}
                     >
-                      <Download className="w-4 h-4" /> Baixar PDF
+                      <Download className="w-4 h-4 text-[#be185d]" /> Baixar PDF
                     </Button>
                   </div>
                   <Button
@@ -719,7 +753,7 @@ export default function Catalog() {
           }}
         >
           {/* Header */}
-          <div className="relative w-full shrink-0 flex flex-col">
+          <div className="relative w-full shrink-0 flex flex-col box-border">
             <div className="relative w-full overflow-hidden">
               <div className="absolute inset-0 z-0">
                 {organization?.banner_url ? (
@@ -735,9 +769,9 @@ export default function Catalog() {
                 )}
               </div>
 
-              <div className="px-8 pt-10 pb-8 relative z-10 flex flex-col items-center text-center">
+              <div className="w-full px-10 pt-10 pb-8 relative z-10 flex flex-col items-center text-center box-border">
                 {showLogo && (
-                  <div className="w-24 h-24 rounded-2xl border-4 border-white/30 overflow-hidden bg-white shadow-xl flex items-center justify-center mb-3">
+                  <div className="w-20 h-20 rounded-2xl border-4 border-white/40 overflow-hidden bg-white shadow-xl flex items-center justify-center mb-3 shrink-0">
                     {organization?.logo_url ? (
                       <img
                         src={organization.logo_url}
@@ -746,21 +780,21 @@ export default function Catalog() {
                         crossOrigin="anonymous"
                       />
                     ) : (
-                      <Store className="w-10 h-10 text-slate-400" />
+                      <Store className="w-9 h-9 text-slate-400" />
                     )}
                   </div>
                 )}
 
-                <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-md">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight drop-shadow-md max-w-[650px] mx-auto px-4 text-center break-words">
                   {organization?.name || 'Catálogo de Produtos'}
                 </h1>
 
-                <p className="mt-2 text-sm text-white/95 max-w-md mx-auto leading-relaxed drop-shadow font-normal">
+                <p className="mt-2 text-sm text-white/95 max-w-[560px] mx-auto leading-relaxed drop-shadow font-normal px-4 text-center break-words">
                   {organization?.description ||
                     'Encontre os melhores produtos com a qualidade que você merece.'}
                 </p>
 
-                <div className="flex items-center justify-center gap-3 mt-4 text-xs font-medium text-white/95 bg-black/20 backdrop-blur-sm px-4 py-1.5 rounded-full border border-white/20">
+                <div className="inline-flex items-center justify-center gap-3 mt-4 text-xs font-medium text-white/95 bg-black/30 backdrop-blur-sm px-5 py-1.5 rounded-full border border-white/20">
                   <div className="flex items-center gap-1">
                     <Star className="w-3.5 h-3.5 text-yellow-300 fill-current" />
                     <span>4.9 (1k+ avaliações)</span>
@@ -778,15 +812,17 @@ export default function Catalog() {
           {/* Content */}
           <div
             className="px-6 py-8 flex-grow bg-slate-50/80"
-            style={{ width: '794px', boxSizing: 'border-box' }}
+            style={{ width: '794px', maxWidth: '794px', boxSizing: 'border-box' }}
           >
             {format === 'grid' ? (
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                  gap: '16px',
-                  width: '100%',
+                  gridTemplateColumns: 'repeat(3, 235px)',
+                  columnGap: '16px',
+                  rowGap: '20px',
+                  width: '746px',
+                  maxWidth: '746px',
                   boxSizing: 'border-box',
                 }}
               >
@@ -821,25 +857,14 @@ export default function Catalog() {
                       }}
                     >
                       <Card className="flex flex-col h-full overflow-hidden rounded-2xl border border-slate-200/90 shadow-sm relative bg-white transition-all">
-                        {/* Top corner badges container */}
-                        <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex items-center justify-between pointer-events-none gap-1">
-                          {hasDiscount && showPrice ? (
-                            <Badge className="bg-[#be185d] text-white font-bold text-[10px] px-2 py-0.5 rounded-md shadow-sm border-none">
+                        {/* Discount Badge on Product Image */}
+                        {hasDiscount && showPrice && (
+                          <div className="absolute top-2 left-2 z-20 pointer-events-none">
+                            <Badge className="bg-[#be185d] text-white font-bold text-[10px] px-2 py-0.5 rounded shadow-sm border-none">
                               -{discountPercent}%
                             </Badge>
-                          ) : (
-                            <span />
-                          )}
-
-                          {isOutOfStock && (
-                            <Badge
-                              variant="secondary"
-                              className="bg-slate-900/90 text-white border-none font-semibold text-[10px] px-2.5 py-0.5 rounded-md shadow-sm ml-auto backdrop-blur-xs"
-                            >
-                              Sem estoque
-                            </Badge>
-                          )}
-                        </div>
+                          </div>
+                        )}
 
                         {/* Product Image */}
                         <div className="aspect-[4/3] bg-slate-100/70 relative overflow-hidden flex items-center justify-center shrink-0 border-b border-slate-100">
@@ -848,7 +873,7 @@ export default function Catalog() {
                               src={imageUrl}
                               alt={p.name}
                               className={`w-full h-full object-cover transition-opacity ${
-                                isOutOfStock ? 'opacity-70 grayscale-[25%]' : ''
+                                isOutOfStock ? 'opacity-40 grayscale' : ''
                               }`}
                               crossOrigin="anonymous"
                             />
@@ -860,25 +885,37 @@ export default function Catalog() {
                         </div>
 
                         {/* Product Details */}
-                        <CardContent className="p-3.5 flex flex-col flex-1">
-                          <h3
-                            className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 min-h-[2.5rem]"
-                            title={p.name}
-                          >
-                            {p.name}
-                          </h3>
+                        <CardContent className="p-3.5 flex flex-col flex-1 justify-between">
+                          <div>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <div className="flex items-center gap-0.5 text-amber-400">
+                                {[1, 2, 3, 4, 5].map((i) => (
+                                  <Star key={i} className="w-3 h-3 fill-current" />
+                                ))}
+                                <span className="text-[11px] text-slate-400 ml-1 font-medium">
+                                  (24)
+                                </span>
+                              </div>
+                              {isOutOfStock && (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-slate-200 text-slate-700 hover:bg-slate-200 border-none font-semibold text-[9px] px-1.5 py-0.5 rounded shrink-0 leading-none"
+                                >
+                                  Sem estoque
+                                </Badge>
+                              )}
+                            </div>
 
-                          <div className="flex items-center gap-0.5 text-amber-400 mt-1 mb-2">
-                            {[1, 2, 3, 4, 5].map((i) => (
-                              <Star key={i} className="w-3 h-3 fill-current" />
-                            ))}
-                            <span className="text-[11px] text-slate-400 ml-1 font-medium">
-                              (24)
-                            </span>
+                            <h3
+                              className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 min-h-[2.5rem]"
+                              title={p.name}
+                            >
+                              {p.name}
+                            </h3>
                           </div>
 
                           {showPrice && (
-                            <div className="mt-auto pt-2 border-t border-slate-100/80 flex flex-col justify-end">
+                            <div className="mt-3 pt-2 border-t border-slate-100/80 flex flex-col justify-end">
                               {hasDiscount ? (
                                 <div className="flex items-baseline gap-1.5 flex-wrap">
                                   <span className="text-base font-extrabold text-[#be185d] tracking-tight">
@@ -944,9 +981,11 @@ export default function Catalog() {
                       <Card className="flex flex-row w-full overflow-hidden rounded-2xl border border-slate-200/90 shadow-sm relative bg-white items-stretch">
                         <div className="w-36 h-36 bg-slate-100/70 relative overflow-hidden flex items-center justify-center shrink-0 border-r border-slate-100">
                           {hasDiscount && showPrice && (
-                            <Badge className="absolute top-2 left-2 z-20 bg-[#be185d] text-white font-bold text-[10px] px-1.5 py-0.5 rounded shadow-sm border-none">
-                              -{discountPercent}%
-                            </Badge>
+                            <div className="absolute top-2 left-2 z-20 pointer-events-none">
+                              <Badge className="bg-[#be185d] text-white font-bold text-[10px] px-1.5 py-0.5 rounded shadow-sm border-none">
+                                -{discountPercent}%
+                              </Badge>
+                            </div>
                           )}
 
                           {imageUrl ? (
@@ -954,7 +993,7 @@ export default function Catalog() {
                               src={imageUrl}
                               alt={p.name}
                               className={`w-full h-full object-cover ${
-                                isOutOfStock ? 'opacity-70 grayscale-[25%]' : ''
+                                isOutOfStock ? 'opacity-40 grayscale' : ''
                               }`}
                               crossOrigin="anonymous"
                             />
@@ -965,28 +1004,28 @@ export default function Catalog() {
 
                         <CardContent className="p-4 flex flex-col flex-1 justify-between min-w-0">
                           <div>
-                            <div className="flex items-start justify-between gap-2">
-                              <h3 className="font-semibold text-slate-800 line-clamp-1 text-base leading-tight">
-                                {p.name}
-                              </h3>
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <div className="flex items-center gap-0.5 text-amber-400">
+                                {[1, 2, 3, 4, 5].map((i) => (
+                                  <Star key={i} className="w-3 h-3 fill-current" />
+                                ))}
+                                <span className="text-[11px] text-slate-400 ml-1 font-medium">
+                                  (24)
+                                </span>
+                              </div>
                               {isOutOfStock && (
                                 <Badge
                                   variant="secondary"
-                                  className="bg-slate-900/90 text-white border-none font-semibold text-[10px] px-2 py-0.5 rounded shrink-0"
+                                  className="bg-slate-200 text-slate-700 hover:bg-slate-200 border-none font-semibold text-[9px] px-1.5 py-0.5 rounded shrink-0 leading-none"
                                 >
                                   Sem estoque
                                 </Badge>
                               )}
                             </div>
 
-                            <div className="flex items-center gap-0.5 text-amber-400 mt-1 mb-2">
-                              {[1, 2, 3, 4, 5].map((i) => (
-                                <Star key={i} className="w-3 h-3 fill-current" />
-                              ))}
-                              <span className="text-[11px] text-slate-400 ml-1 font-medium">
-                                (24)
-                              </span>
-                            </div>
+                            <h3 className="font-semibold text-slate-800 line-clamp-1 text-base leading-tight">
+                              {p.name}
+                            </h3>
                           </div>
 
                           {showPrice && (
