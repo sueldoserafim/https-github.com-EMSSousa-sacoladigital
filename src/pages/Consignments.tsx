@@ -169,7 +169,9 @@ export default function Consignments() {
                         <div className="flex items-center gap-2">
                           {format(new Date(c.deadline), 'dd/MM/yyyy')}
                           {overdue && (
-                            <AlertTriangle className="w-4 h-4 text-red-500" title="Atrasado" />
+                            <span title="Atrasado" className="inline-flex">
+                              <AlertTriangle className="w-4 h-4 text-red-500" />
+                            </span>
                           )}
                           {dueToday && (
                             <Badge

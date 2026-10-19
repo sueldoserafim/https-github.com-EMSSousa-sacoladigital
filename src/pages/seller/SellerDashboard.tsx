@@ -46,7 +46,8 @@ export default function SellerDashboard() {
         .eq('status', 'active')
 
       const totalSales = ordersData?.reduce((sum, order) => sum + Number(order.total || 0), 0) || 0
-      const totalCommission = transactions?.reduce((sum, t) => sum + Number(t.amount || 0), 0) || 0
+      const totalCommission =
+        transactions?.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0) || 0
 
       setStats({
         salesVolume: totalSales,

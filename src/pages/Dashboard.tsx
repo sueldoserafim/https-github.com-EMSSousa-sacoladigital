@@ -137,12 +137,12 @@ export default function Dashboard() {
           { data: visitsData },
           { data: alertsData },
         ] = await Promise.all([
-          supabase
-            .from('financial_transactions' as any)
+          (supabase as any)
+            .from('financial_transactions')
             .select('amount, type, created_at')
             .eq('organization_id', organization.id)
             .gte('created_at', subDays(now, 60).toISOString()),
-          supabase
+          (supabase as any)
             .from('orders')
             .select(
               'id, order_number, created_at, total, status, customers(name), order_items(quantity, products(cost))',
@@ -151,34 +151,37 @@ export default function Dashboard() {
             .gte('created_at', subDays(now, 60).toISOString())
             .order('created_at', { ascending: false })
             .limit(2000),
-          supabase
-            .from('vw_product_performance' as any)
+          (supabase as any)
+            .from('vw_product_performance')
             .select('*')
             .eq('organization_id', organization.id),
-          supabase.from('customers').select('id, segment').eq('organization_id', organization.id),
-          supabase
+          (supabase as any)
+            .from('customers')
+            .select('id, segment')
+            .eq('organization_id', organization.id),
+          (supabase as any)
             .from('customers')
             .select('id, name, created_at, orders(created_at)')
             .eq('organization_id', organization.id)
             .eq('segment', 'Inativo'),
-          supabase
+          (supabase as any)
             .from('loyalty_wallets')
             .select('id, balance, customers(name)')
             .eq('organization_id', organization.id)
             .order('balance', { ascending: false })
             .limit(5),
-          supabase
-            .from('vw_expiring_soon_points' as any)
+          (supabase as any)
+            .from('vw_expiring_soon_points')
             .select('*')
             .eq('organization_id', organization.id)
             .limit(5),
-          supabase
-            .from('site_visits' as any)
+          (supabase as any)
+            .from('site_visits')
             .select('session_id')
             .eq('organization_id', organization.id)
             .gte('created_at', startOfThisMonth.toISOString()),
-          supabase
-            .from('intelligent_alerts' as any)
+          (supabase as any)
+            .from('intelligent_alerts')
             .select('id, type, severity, message, created_at, product_id')
             .eq('organization_id', organization.id)
             .eq('is_resolved', false)

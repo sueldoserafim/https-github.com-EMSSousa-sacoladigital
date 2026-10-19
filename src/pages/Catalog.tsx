@@ -125,30 +125,39 @@ export default function Catalog() {
         .html2pdf()
         .from(element)
         .set({
-          margin: 0,
+          margin: [0, 0, 0, 0],
           filename: `catalog_${Date.now()}.pdf`,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: {
             scale: 2,
             useCORS: true,
+            allowTaint: true,
             logging: false,
             width: 794,
             windowWidth: 794,
             letterRendering: true,
             scrollX: 0,
             scrollY: 0,
-            onclone: (clonedDoc: any) => {
+            onclone: (clonedDoc: Document) => {
               clonedDoc.documentElement.style.margin = '0'
               clonedDoc.documentElement.style.padding = '0'
+              clonedDoc.documentElement.style.width = '794px'
               clonedDoc.body.style.margin = '0'
               clonedDoc.body.style.padding = '0'
+              clonedDoc.body.style.width = '794px'
 
               const el = clonedDoc.getElementById('hidden-catalog-content')
               if (el && el.parentElement) {
                 el.parentElement.style.position = 'static'
-                el.parentElement.style.top = 'auto'
-                el.parentElement.style.left = 'auto'
+                el.parentElement.style.top = '0'
+                el.parentElement.style.left = '0'
+                el.parentElement.style.width = '794px'
                 el.parentElement.style.transform = 'none'
+              }
+              if (el) {
+                el.style.width = '794px'
+                el.style.maxWidth = '794px'
+                el.style.boxSizing = 'border-box'
               }
             },
           },
@@ -531,14 +540,42 @@ export default function Catalog() {
                   </Button>
 
                   <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-                    <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
-                      <DialogHeader className="px-6 py-4 border-b shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                        <DialogTitle>Visualização do Catálogo</DialogTitle>
+                    <DialogContent className="max-w-5xl w-[95vw] h-[92vh] flex flex-col p-0 overflow-hidden bg-slate-900 border-slate-800">
+                      <DialogHeader className="px-6 py-4 border-b border-border shrink-0 bg-background flex flex-row items-center justify-between">
+                        <DialogTitle className="text-lg font-bold">
+                          Visualização do Catálogo
+                        </DialogTitle>
+                        {generatedPdf?.url && (
+                          <div className="flex items-center gap-2 pr-6">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs"
+                              onClick={(e) => copyPdfLink(e, generatedPdf.url)}
+                            >
+                              <LinkIcon className="h-3.5 w-3.5" /> Copiar link
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs bg-[#be185d] hover:bg-[#a2134e] text-white"
+                              onClick={() => {
+                                const a = document.createElement('a')
+                                a.href = generatedPdf.url
+                                a.download = `catalogo.pdf`
+                                a.target = '_blank'
+                                a.click()
+                              }}
+                            >
+                              <Download className="h-3.5 w-3.5" /> Baixar
+                            </Button>
+                          </div>
+                        )}
                       </DialogHeader>
-                      <div className="flex-1 bg-muted/30">
+                      <div className="flex-1 bg-slate-800/90 relative p-2 sm:p-4 flex items-center justify-center overflow-auto">
                         <iframe
-                          src={`${generatedPdf.url}#toolbar=0`}
-                          className="w-full h-full border-0"
+                          src={`${generatedPdf.url}#view=FitH&toolbar=0`}
+                          className="w-full h-full min-h-[500px] border-0 rounded shadow-2xl bg-white"
                           title="Preview do Catálogo"
                         />
                       </div>
@@ -614,15 +651,41 @@ export default function Catalog() {
         open={!!selectedHistoryUrl}
         onOpenChange={(open) => !open && setSelectedHistoryUrl(null)}
       >
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="px-6 py-4 border-b shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <DialogTitle>Visualização do Catálogo</DialogTitle>
+        <DialogContent className="max-w-5xl w-[95vw] h-[92vh] flex flex-col p-0 overflow-hidden bg-slate-900 border-slate-800">
+          <DialogHeader className="px-6 py-4 border-b border-border shrink-0 bg-background flex flex-row items-center justify-between">
+            <DialogTitle className="text-lg font-bold">Visualização do Catálogo</DialogTitle>
+            {selectedHistoryUrl && (
+              <div className="flex items-center gap-2 pr-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={(e) => copyPdfLink(e, selectedHistoryUrl)}
+                >
+                  <LinkIcon className="h-3.5 w-3.5" /> Copiar link
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs bg-[#be185d] hover:bg-[#a2134e] text-white"
+                  onClick={() => {
+                    const a = document.createElement('a')
+                    a.href = selectedHistoryUrl
+                    a.download = `catalogo.pdf`
+                    a.target = '_blank'
+                    a.click()
+                  }}
+                >
+                  <Download className="h-3.5 w-3.5" /> Baixar
+                </Button>
+              </div>
+            )}
           </DialogHeader>
-          <div className="flex-1 bg-muted/30">
+          <div className="flex-1 bg-slate-800/90 relative p-2 sm:p-4 flex items-center justify-center overflow-auto">
             {selectedHistoryUrl && (
               <iframe
-                src={`${selectedHistoryUrl}#toolbar=0`}
-                className="w-full h-full border-0"
+                src={`${selectedHistoryUrl}#view=FitH&toolbar=0`}
+                className="w-full h-full min-h-[500px] border-0 rounded shadow-2xl bg-white"
                 title="Preview do Catálogo"
               />
             )}
@@ -633,22 +696,31 @@ export default function Catalog() {
       {/* Hidden container for PDF generation */}
       <div
         style={{
-          position: 'absolute',
+          position: 'fixed',
           left: '-9999px',
           top: '0',
           width: '794px',
+          maxWidth: '794px',
+          minWidth: '794px',
           overflow: 'hidden',
           pointerEvents: 'none',
+          zIndex: -1,
         }}
       >
         <div
           id="hidden-catalog-content"
-          className="w-[794px] bg-slate-50 min-h-[1123px] relative flex flex-col font-sans"
-          style={{ width: '794px', boxSizing: 'border-box' }}
+          className="bg-slate-50 min-h-[1123px] relative flex flex-col font-sans text-slate-800"
+          style={{
+            width: '794px',
+            maxWidth: '794px',
+            minWidth: '794px',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
+          }}
         >
           {/* Header */}
           <div className="relative w-full shrink-0 flex flex-col">
-            <div className="relative w-full">
+            <div className="relative w-full overflow-hidden">
               <div className="absolute inset-0 z-0">
                 {organization?.banner_url ? (
                   <>
@@ -656,47 +728,47 @@ export default function Catalog() {
                       className="w-full h-full bg-cover bg-center"
                       style={{ backgroundImage: `url(${organization.banner_url})` }}
                     />
-                    <div className="absolute inset-0 bg-black/40" />
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
                   </>
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-r from-[#be185d] to-[#f49acb]" />
+                  <div className="w-full h-full bg-gradient-to-r from-[#be185d] via-[#d946ef] to-[#f472b6]" />
                 )}
               </div>
 
-              <div className="px-8 pt-12 pb-10 relative z-10 flex flex-col items-center text-center">
+              <div className="px-8 pt-10 pb-8 relative z-10 flex flex-col items-center text-center">
                 {showLogo && (
-                  <div className="w-32 h-32 rounded-full border-4 border-white/20 overflow-hidden bg-white shadow-xl flex items-center justify-center mb-4">
+                  <div className="w-24 h-24 rounded-2xl border-4 border-white/30 overflow-hidden bg-white shadow-xl flex items-center justify-center mb-3">
                     {organization?.logo_url ? (
                       <img
                         src={organization.logo_url}
                         alt={organization.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain p-1"
                         crossOrigin="anonymous"
                       />
                     ) : (
-                      <Store className="w-10 h-10 text-slate-300" />
+                      <Store className="w-10 h-10 text-slate-400" />
                     )}
                   </div>
                 )}
 
-                <h1 className="text-4xl font-extrabold text-white tracking-tight drop-shadow-md">
+                <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-md">
                   {organization?.name || 'Catálogo de Produtos'}
                 </h1>
 
-                <p className="mt-3 text-base text-white/90 max-w-lg mx-auto leading-relaxed drop-shadow">
+                <p className="mt-2 text-sm text-white/95 max-w-md mx-auto leading-relaxed drop-shadow font-normal">
                   {organization?.description ||
                     'Encontre os melhores produtos com a qualidade que você merece.'}
                 </p>
 
-                <div className="flex items-center justify-center gap-4 mt-5 text-sm font-medium text-white/90 drop-shadow">
+                <div className="flex items-center justify-center gap-3 mt-4 text-xs font-medium text-white/95 bg-black/20 backdrop-blur-sm px-4 py-1.5 rounded-full border border-white/20">
                   <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                    <Star className="w-3.5 h-3.5 text-yellow-300 fill-current" />
                     <span>4.9 (1k+ avaliações)</span>
                   </div>
-                  <div className="w-1 h-1 rounded-full bg-white/50" />
+                  <div className="w-1 h-1 rounded-full bg-white/60" />
                   <div className="flex items-center gap-1">
-                    <ShoppingBag className="w-4 h-4 text-white/90" />
-                    <span>{catalogProducts.length} produtos</span>
+                    <ShoppingBag className="w-3.5 h-3.5 text-white/90" />
+                    <span>{catalogProducts.length} itens disponíveis</span>
                   </div>
                 </div>
               </div>
@@ -704,9 +776,20 @@ export default function Catalog() {
           </div>
 
           {/* Content */}
-          <div className="px-8 py-10 flex-grow bg-slate-50">
+          <div
+            className="px-6 py-8 flex-grow bg-slate-50/80"
+            style={{ width: '794px', boxSizing: 'border-box' }}
+          >
             {format === 'grid' ? (
-              <div className="flex flex-wrap -mx-3">
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: '16px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                }}
+              >
                 {catalogProducts.map((p) => {
                   const inStockSkus = p.product_skus?.filter((s: any) => s.stock > 0) || []
                   const isOutOfStock = inStockSkus.length === 0
@@ -728,69 +811,85 @@ export default function Catalog() {
                   return (
                     <div
                       key={p.id}
-                      className="w-1/3 px-3 mb-6 card-wrapper"
+                      className="card-wrapper"
                       style={{
                         pageBreakInside: 'avoid',
                         breakInside: 'avoid',
                         display: 'block',
+                        boxSizing: 'border-box',
+                        minWidth: 0,
                       }}
                     >
-                      <Card className="flex flex-col h-full overflow-hidden rounded-[24px] border border-slate-100 shadow-sm relative bg-white">
-                        {hasDiscount && showPrice && (
-                          <Badge className="absolute top-3 left-3 z-20 bg-[#be185d] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
-                            -{discountPercent}%
-                          </Badge>
-                        )}
+                      <Card className="flex flex-col h-full overflow-hidden rounded-2xl border border-slate-200/90 shadow-sm relative bg-white transition-all">
+                        {/* Top corner badges container */}
+                        <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex items-center justify-between pointer-events-none gap-1">
+                          {hasDiscount && showPrice ? (
+                            <Badge className="bg-[#be185d] text-white font-bold text-[10px] px-2 py-0.5 rounded-md shadow-sm border-none">
+                              -{discountPercent}%
+                            </Badge>
+                          ) : (
+                            <span />
+                          )}
 
-                        {isOutOfStock && (
-                          <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">
+                          {isOutOfStock && (
                             <Badge
                               variant="secondary"
-                              className="bg-slate-900/80 text-white border-none font-semibold px-4 py-1.5 rounded-full"
+                              className="bg-slate-900/90 text-white border-none font-semibold text-[10px] px-2.5 py-0.5 rounded-md shadow-sm ml-auto backdrop-blur-xs"
                             >
                               Sem estoque
                             </Badge>
-                          </div>
-                        )}
+                          )}
+                        </div>
 
-                        <div className="aspect-[4/5] bg-slate-50 relative overflow-hidden flex items-center justify-center shrink-0">
+                        {/* Product Image */}
+                        <div className="aspect-[4/3] bg-slate-100/70 relative overflow-hidden flex items-center justify-center shrink-0 border-b border-slate-100">
                           {imageUrl ? (
                             <img
                               src={imageUrl}
                               alt={p.name}
-                              className="w-full h-full object-cover"
+                              className={`w-full h-full object-cover transition-opacity ${
+                                isOutOfStock ? 'opacity-70 grayscale-[25%]' : ''
+                              }`}
                               crossOrigin="anonymous"
                             />
                           ) : (
-                            <Store className="w-12 h-12 text-slate-300" />
+                            <div className="flex flex-col items-center justify-center text-slate-300 gap-1">
+                              <Store className="w-10 h-10 stroke-[1.5]" />
+                            </div>
                           )}
                         </div>
 
-                        <CardContent className="p-5 flex flex-col flex-1 gap-1.5">
-                          <h3 className="font-medium text-slate-800 line-clamp-2 text-base leading-tight">
+                        {/* Product Details */}
+                        <CardContent className="p-3.5 flex flex-col flex-1">
+                          <h3
+                            className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 min-h-[2.5rem]"
+                            title={p.name}
+                          >
                             {p.name}
                           </h3>
 
-                          <div className="flex items-center gap-0.5 text-yellow-400 mt-1">
+                          <div className="flex items-center gap-0.5 text-amber-400 mt-1 mb-2">
                             {[1, 2, 3, 4, 5].map((i) => (
                               <Star key={i} className="w-3 h-3 fill-current" />
                             ))}
-                            <span className="text-xs text-slate-400 ml-1 font-medium">(24)</span>
+                            <span className="text-[11px] text-slate-400 ml-1 font-medium">
+                              (24)
+                            </span>
                           </div>
 
                           {showPrice && (
-                            <div className="mt-auto pt-3 flex flex-col">
+                            <div className="mt-auto pt-2 border-t border-slate-100/80 flex flex-col justify-end">
                               {hasDiscount ? (
-                                <>
-                                  <span className="text-xs text-slate-400 line-through font-medium">
-                                    {formatCurrency(originalPrice)}
-                                  </span>
-                                  <span className="text-lg font-extrabold text-[#be185d]">
+                                <div className="flex items-baseline gap-1.5 flex-wrap">
+                                  <span className="text-base font-extrabold text-[#be185d] tracking-tight">
                                     {formatCurrency(minPrice)}
                                   </span>
-                                </>
+                                  <span className="text-xs text-slate-400 line-through font-normal">
+                                    {formatCurrency(originalPrice)}
+                                  </span>
+                                </div>
                               ) : (
-                                <span className="text-lg font-extrabold text-[#be185d]">
+                                <span className="text-base font-extrabold text-[#be185d] tracking-tight">
                                   {formatCurrency(minPrice)}
                                 </span>
                               )}
@@ -803,7 +902,15 @@ export default function Catalog() {
                 })}
               </div>
             ) : (
-              <div className="flex flex-col">
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                }}
+              >
                 {catalogProducts.map((p) => {
                   const inStockSkus = p.product_skus?.filter((s: any) => s.stock > 0) || []
                   const isOutOfStock = inStockSkus.length === 0
@@ -825,65 +932,76 @@ export default function Catalog() {
                   return (
                     <div
                       key={p.id}
-                      className="w-full mb-6 card-wrapper"
-                      style={{ pageBreakInside: 'avoid', breakInside: 'avoid', display: 'block' }}
+                      className="card-wrapper"
+                      style={{
+                        pageBreakInside: 'avoid',
+                        breakInside: 'avoid',
+                        display: 'block',
+                        boxSizing: 'border-box',
+                        width: '100%',
+                      }}
                     >
-                      <Card className="flex w-full overflow-hidden rounded-[24px] border border-slate-100 shadow-sm relative bg-white items-stretch">
-                        {hasDiscount && showPrice && (
-                          <Badge className="absolute top-3 left-3 z-20 bg-[#be185d] text-white font-bold px-2.5 py-0.5 rounded-full shadow-sm border-none">
-                            -{discountPercent}%
-                          </Badge>
-                        )}
-
-                        {isOutOfStock && (
-                          <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">
-                            <Badge
-                              variant="secondary"
-                              className="bg-slate-900/80 text-white border-none font-semibold px-4 py-1.5 rounded-full"
-                            >
-                              Sem estoque
+                      <Card className="flex flex-row w-full overflow-hidden rounded-2xl border border-slate-200/90 shadow-sm relative bg-white items-stretch">
+                        <div className="w-36 h-36 bg-slate-100/70 relative overflow-hidden flex items-center justify-center shrink-0 border-r border-slate-100">
+                          {hasDiscount && showPrice && (
+                            <Badge className="absolute top-2 left-2 z-20 bg-[#be185d] text-white font-bold text-[10px] px-1.5 py-0.5 rounded shadow-sm border-none">
+                              -{discountPercent}%
                             </Badge>
-                          </div>
-                        )}
+                          )}
 
-                        <div className="w-48 h-48 bg-slate-50 relative overflow-hidden flex items-center justify-center shrink-0">
                           {imageUrl ? (
                             <img
                               src={imageUrl}
                               alt={p.name}
-                              className="w-full h-full object-cover"
+                              className={`w-full h-full object-cover ${
+                                isOutOfStock ? 'opacity-70 grayscale-[25%]' : ''
+                              }`}
                               crossOrigin="anonymous"
                             />
                           ) : (
-                            <Store className="w-12 h-12 text-slate-300" />
+                            <Store className="w-10 h-10 text-slate-300" />
                           )}
                         </div>
 
-                        <CardContent className="p-6 flex flex-col flex-1 justify-center">
-                          <h3 className="font-medium text-slate-800 line-clamp-2 text-xl leading-tight mb-2">
-                            {p.name}
-                          </h3>
+                        <CardContent className="p-4 flex flex-col flex-1 justify-between min-w-0">
+                          <div>
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-slate-800 line-clamp-1 text-base leading-tight">
+                                {p.name}
+                              </h3>
+                              {isOutOfStock && (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-slate-900/90 text-white border-none font-semibold text-[10px] px-2 py-0.5 rounded shrink-0"
+                                >
+                                  Sem estoque
+                                </Badge>
+                              )}
+                            </div>
 
-                          <div className="flex items-center gap-0.5 text-yellow-400 mb-4">
-                            {[1, 2, 3, 4, 5].map((i) => (
-                              <Star key={i} className="w-4 h-4 fill-current" />
-                            ))}
-                            <span className="text-xs text-slate-400 ml-1 font-medium">(24)</span>
+                            <div className="flex items-center gap-0.5 text-amber-400 mt-1 mb-2">
+                              {[1, 2, 3, 4, 5].map((i) => (
+                                <Star key={i} className="w-3 h-3 fill-current" />
+                              ))}
+                              <span className="text-[11px] text-slate-400 ml-1 font-medium">
+                                (24)
+                              </span>
+                            </div>
                           </div>
 
                           {showPrice && (
-                            <div className="mt-auto flex items-baseline gap-2">
+                            <div className="mt-2 pt-2 border-t border-slate-100 flex items-baseline gap-2">
                               {hasDiscount ? (
                                 <>
-                                  <span className="text-2xl font-extrabold text-[#be185d]">
+                                  <span className="text-xl font-extrabold text-[#be185d]">
                                     {formatCurrency(minPrice)}
                                   </span>
-                                  <span className="text-sm text-slate-400 line-through font-medium">
+                                  <span className="text-xs text-slate-400 line-through font-normal">
                                     {formatCurrency(originalPrice)}
                                   </span>
                                 </>
                               ) : (
-                                <span className="text-2xl font-extrabold text-[#be185d]">
+                                <span className="text-xl font-extrabold text-[#be185d]">
                                   {formatCurrency(minPrice)}
                                 </span>
                               )}
@@ -900,65 +1018,74 @@ export default function Catalog() {
 
           {/* Unified Footer */}
           <div
-            className="bg-white border-t border-slate-100 pb-12 pt-12 px-8 text-center flex flex-col items-center gap-6 relative shrink-0 card-wrapper"
-            style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+            className="bg-white border-t border-slate-200/80 pb-8 pt-8 px-8 text-center flex flex-col items-center gap-5 relative shrink-0 card-wrapper mt-auto"
+            style={{
+              pageBreakInside: 'avoid',
+              breakInside: 'avoid',
+              width: '794px',
+              boxSizing: 'border-box',
+            }}
           >
-            <div className="w-full flex flex-row gap-6 text-left z-10 text-sm">
-              <div className="flex-1">
-                <h4 className="font-bold text-slate-900 mb-3 tracking-widest text-xs">Contato</h4>
+            <div className="w-full grid grid-cols-3 gap-6 text-left z-10 text-xs">
+              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
+                <h4 className="font-bold text-slate-900 mb-2.5 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#be185d]"></span> Contato
+                </h4>
                 {showWhatsApp && (
-                  <p className="text-slate-600 mb-2 flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0">
+                  <p className="text-slate-600 mb-1.5 flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 text-[10px]">
                       📱
                     </span>
                     +55 (11) 99999-9999
                   </p>
                 )}
-                <p className="text-slate-600 flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                <p className="text-slate-600 flex items-center gap-2 truncate">
+                  <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 text-[10px]">
                     ✉️
                   </span>
                   contato@{organization?.slug || 'empresa'}.com.br
                 </p>
               </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-slate-900 mb-3 tracking-widest text-xs">
-                  Redes Sociais
+
+              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
+                <h4 className="font-bold text-slate-900 mb-2.5 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#be185d]"></span> Redes Sociais
                 </h4>
-                <p className="text-slate-600 mb-2 flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-[#be185d]/10 text-[#be185d] flex items-center justify-center shrink-0">
+                <p className="text-slate-600 mb-1.5 flex items-center gap-2 truncate">
+                  <span className="w-5 h-5 rounded-full bg-[#be185d]/10 text-[#be185d] flex items-center justify-center shrink-0 text-[10px]">
                     📸
                   </span>
                   @{organization?.slug || 'instagram'}
                 </p>
-                <p className="text-slate-600 flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                <p className="text-slate-600 flex items-center gap-2 truncate">
+                  <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 text-[10px]">
                     📘
                   </span>
                   fb.com/{organization?.slug || 'facebook'}
                 </p>
               </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-slate-900 mb-3 tracking-widest text-xs">Endereço</h4>
-                <p className="text-slate-600 leading-relaxed">
-                  <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 inline-flex items-center justify-center mr-2 float-left shrink-0">
+
+              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
+                <h4 className="font-bold text-slate-900 mb-2.5 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#be185d]"></span> Localização
+                </h4>
+                <p className="text-slate-600 leading-relaxed text-[11px]">
+                  <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 inline-flex items-center justify-center mr-1.5 float-left shrink-0 text-[10px]">
                     📍
                   </span>
-                  Av. Paulista, 1000
-                  <br />
-                  Bela Vista, SP
+                  Av. Paulista, 1000 - Bela Vista, SP
                   <br />
                   CEP 01310-100
                 </p>
               </div>
             </div>
 
-            <div className="w-full h-px bg-slate-100 my-2"></div>
+            <div className="w-full h-px bg-slate-100 my-1"></div>
 
-            <div className="text-slate-400 text-xs font-medium tracking-wide flex justify-between w-full">
+            <div className="text-slate-400 text-[11px] font-medium tracking-wide flex justify-between w-full items-center">
               <p>Catálogo gerado em {new Date().toLocaleDateString('pt-BR')}</p>
-              <p>
-                {new Date().getFullYear()} © {organization?.name}
+              <p className="font-semibold text-slate-500">
+                {new Date().getFullYear()} © {organization?.name || 'Sacola Digital'}
               </p>
             </div>
           </div>

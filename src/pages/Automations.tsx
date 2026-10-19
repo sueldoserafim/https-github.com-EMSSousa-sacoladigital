@@ -64,8 +64,8 @@ export default function Automations() {
   const fetchAutomations = async () => {
     if (!organization?.id) return
     try {
-      const { data, error } = await supabase
-        .from('marketing_automations' as any)
+      const { data, error } = await (supabase as any)
+        .from('marketing_automations')
         .select('*')
         .eq('organization_id', organization.id)
         .order('created_at', { ascending: true })

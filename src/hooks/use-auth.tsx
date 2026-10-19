@@ -13,6 +13,12 @@ interface Organization {
   id: string
   name: string
   slug: string
+  created_at?: string
+  plan_type?: string
+  banner_url?: string | null
+  logo_url?: string | null
+  description?: string | null
+  [key: string]: any
 }
 
 interface AuthContextType {

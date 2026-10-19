@@ -83,7 +83,7 @@ export default function PreOrders() {
     )
 
   const sortedDemand = Object.entries(topDemandSkus)
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
     .slice(0, 3)
 
   const handleConvertConfirmed = async () => {
@@ -233,7 +233,7 @@ export default function PreOrders() {
                     className="flex justify-between items-center border-b pb-2 last:border-0"
                   >
                     <span className="font-medium text-sm">{sku}</span>
-                    <Badge variant="secondary">{qty} unidades</Badge>
+                    <Badge variant="secondary">{String(qty)} unidades</Badge>
                   </div>
                 ))
               ) : (
